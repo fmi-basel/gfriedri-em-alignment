@@ -127,3 +127,29 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Sphinx documentation
+docs/_build/
+
+# MkDocs documentation
+/site/
+
+# PyBuilder
+target/
+
+# Pycharm and VSCode
+.idea/
+venv/
+.vscode/
+
+# IPython Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# OS
+.DS_Store
+
+# written by setuptools_scm
+**/_version.py
