@@ -2,7 +2,9 @@ from glob import glob
 from os.path import join
 
 import numpy as np
-from sbem.record import BlockRecord, SectionRecord, TileRecord
+from sbem.record.BlockRecord import BlockRecord
+from sbem.record.SectionRecord import SectionRecord
+from sbem.record.TileRecord import TileRecord
 from tifffile import imsave
 
 

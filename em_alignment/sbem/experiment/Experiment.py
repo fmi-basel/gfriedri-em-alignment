@@ -5,7 +5,9 @@ from os import mkdir
 from os.path import basename, exists, join
 
 from sbem.experiment.parse_utils import get_tile_metadata
-from sbem.record import BlockRecord, SectionRecord, TileRecord
+from sbem.record.BlockRecord import BlockRecord
+from sbem.record.SectionRecord import SectionRecord
+from sbem.record.TileRecord import TileRecord
 from tqdm import tqdm
 
 

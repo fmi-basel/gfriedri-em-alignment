@@ -2,7 +2,7 @@ import configparser
 from os import makedirs
 from os.path import join
 
-from sbem.experiment import Experiment
+from sbem.experiment.Experiment import Experiment
 
 
 def test_experiment(tmpdir):

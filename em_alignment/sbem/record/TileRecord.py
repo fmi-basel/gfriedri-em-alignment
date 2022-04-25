@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 from logging import Logger
 from os.path import exists
+from typing import TYPE_CHECKING
 
-from sbem.record import SectionRecord
 from skimage.io import imread
+
+if TYPE_CHECKING:
+    from sbem.record.SectionRecord import SectionRecord
 
 
 class TileRecord:

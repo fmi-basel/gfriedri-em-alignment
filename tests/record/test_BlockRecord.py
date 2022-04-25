@@ -2,8 +2,9 @@ from os.path import join
 
 import numpy as np
 from numpy.testing import assert_array_equal
-from sbem.experiment import Experiment
-from sbem.record import BlockRecord, SectionRecord
+from sbem.experiment.Experiment import Experiment
+from sbem.record.BlockRecord import BlockRecord
+from sbem.record.SectionRecord import SectionRecord
 
 
 def test_block_record(tmpdir):
