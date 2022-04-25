@@ -75,7 +75,8 @@ class SectionRecord:
             with open(join(path, "section.json"), "w") as f:
                 json.dump(section_dict, f, indent=4)
 
-            np.savez(join(path, tile_id_map_path), tile_id_map=self.tile_id_map)
+            if self.tile_id_map is not None:
+                np.savez(join(path, tile_id_map_path), tile_id_map=self.tile_id_map)
 
     def load(self, path):
         path_ = join(path, "section.json")
@@ -93,7 +94,7 @@ class SectionRecord:
             ), "{}[tile_grid_num] incompatible with directory tree."
 
             for tile_id, tile_dict in section_dict["tile_map"].items():
-                TileRecord(
+                t = TileRecord(
                     section=self,
                     path=tile_dict["path"],
                     tile_id=tile_dict["tile_id"],
@@ -101,3 +102,10 @@ class SectionRecord:
                     y=tile_dict["y"],
                     resolution_xy=tile_dict["resolution_xy"],
                 )
+                self.register_tile(t)
+
+            tile_id_map_path = join(path, self.get_name() + "_tile_id_map.npz")
+            if exists(tile_id_map_path):
+                data = np.load(tile_id_map_path)
+                if "tile_id_map" in data.files:
+                    self.tile_id_map = data["tile_id_map"]

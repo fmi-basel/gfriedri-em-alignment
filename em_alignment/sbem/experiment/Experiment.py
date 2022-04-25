@@ -10,6 +10,16 @@ from tqdm import tqdm
 
 
 class Experiment:
+    """
+    from sbem.experiment import Experiment
+    exp = Experiment("20210630_Dp_190326Bb_run04", "/tungstenfs/landing/gmicro_sem/gemini_data/20210630_Dp_190326Bb_run04")
+    exp.add_block("/tungstenfs/landing/gmicro_sem/gemini_data"
+                  "/20210630_Dp_190326Bb_run04", "g0001", 11)
+    exp.save("/home/tibuch/Data/gfriedri/20210630_Dp_190326Bb_run04")
+    exp.load("/home/tibuch/Data/gfriedri/20210630_Dp_190326Bb_run04")
+
+    """
+
     def __init__(self, name: str = None, sbem_run_path: str = None):
         self.logger = Logger(f"Experiment[{name}]")
         self.name = name
@@ -63,8 +73,8 @@ class Experiment:
                     )
                 )
 
-                for section in block.sections.values():
-                    section.compute_tile_id_map()
+        for section in tqdm(block.sections.values(), desc="Build " "tile-id-maps"):
+            section.compute_tile_id_map()
 
     def save(self, path):
         if exists(path):

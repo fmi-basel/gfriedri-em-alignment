@@ -26,7 +26,7 @@ class BlockRecord:
     def get_section(self, section_num: int, tile_grid_num: int = 0):
         id_ = tuple([section_num, tile_grid_num])
         if id_ in self.sections.keys():
-            return self.sections[tuple([section_num, tile_grid_num])]
+            return self.sections[id_]
         else:
             return None
 
@@ -37,11 +37,15 @@ class BlockRecord:
 
     def has_missing_section(self):
         z_diff = np.diff(self.get_section_range())
-        return (z_diff > 1).all()
+        return (z_diff > 1).any()
 
     def get_missing_sections(self):
-        z_diff = np.diff(self.get_section_range())
-        return self.get_section_range()[:-1][z_diff > 1]
+        existing_sections = self.get_section_range()
+        missing_sections = []
+        for i in range(existing_sections[0], existing_sections[-1]):
+            if i not in existing_sections:
+                missing_sections.append(i)
+        return np.array(missing_sections)
 
     def save(self, path):
         if exists(path):
