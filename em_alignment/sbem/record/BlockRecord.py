@@ -10,10 +10,14 @@ from tqdm import tqdm
 
 
 class BlockRecord:
-    def __init__(self, experiment: Experiment, block_id: str):
+    def __init__(self, experiment: Experiment, block_id: str, save_dir: str):
         self.logger = Logger("Block Record")
         self.experiment = experiment
         self.block_id = block_id
+        if save_dir is not None:
+            self.save_dir = join(save_dir, self.block_id)
+        else:
+            self.save_dir = None
 
         self.sections = {}
 
@@ -47,22 +51,20 @@ class BlockRecord:
                 missing_sections.append(i)
         return np.array(missing_sections)
 
-    def save(self, path):
-        if exists(path):
-            self.logger.warning("Block already exists.")
-        else:
-            mkdir(path)
-            block_dict = {
-                "block_id": self.block_id,
-                "n_section": len(self.sections),
-                "sections": list(self.sections.keys()),
-            }
-            with open(join(path, "block.json"), "w") as f:
-                json.dump(block_dict, f, indent=4)
+    def save(self):
+        assert self.save_dir is not None, "Save dir is not set."
+        mkdir(self.save_dir)
+        block_dict = {
+            "block_id": self.block_id,
+            "save_dir": self.save_dir,
+            "n_section": len(self.sections),
+            "sections": list(self.sections.keys()),
+        }
+        with open(join(self.save_dir, "block.json"), "w") as f:
+            json.dump(block_dict, f, indent=4)
 
-            for section in self.sections.values():
-                section_dir = join(path, section.get_name())
-                section.save(section_dir)
+        for section in self.sections.values():
+            section.save()
 
     def load(self, path):
         path_ = join(path, "block.json")
@@ -73,8 +75,9 @@ class BlockRecord:
                 block_dict = json.load(f)
 
             self.block_id = block_dict["block_id"]
+            self.save_dir = block_dict["save_dir"]
             for (section_num, tile_grid_num) in tqdm(
                 block_dict["sections"], desc="Loading Sections"
             ):
-                section = SectionRecord(self, section_num, tile_grid_num)
+                section = SectionRecord(self, section_num, tile_grid_num, self.save_dir)
                 section.load(join(path, section.get_name()))

@@ -9,13 +9,24 @@ from sbem.record.TileRecord import TileRecord
 
 
 class SectionRecord:
-    def __init__(self, block: BlockRecord, section_num: int, tile_grid_num: int):
+    def __init__(
+        self,
+        block: BlockRecord,
+        section_num: int,
+        tile_grid_num: int,
+        save_dir: str = None,
+    ):
         self.logger = Logger("Section Record")
         self.block = block
         self.section_num = section_num
         self.tile_grid_num = tile_grid_num
 
         self.section_id = tuple([self.section_num, self.tile_grid_num])
+
+        if save_dir is not None:
+            self.save_dir = join(save_dir, self.get_name())
+        else:
+            self.save_dir = None
 
         self.tile_map = {}
 
@@ -32,6 +43,12 @@ class SectionRecord:
             return self.tile_map[tile_id]
         else:
             return None
+
+    def get_tile_data_map(self):
+        tile_data_map = {}
+        for tile in self.tile_map.values():
+            tile_data_map[(tile.x, tile.y)] = tile.get_tile_data()
+        return tile_data_map
 
     def compute_tile_id_map(self):
         tile_to_coords = {}
@@ -53,30 +70,30 @@ class SectionRecord:
     def get_name(self):
         return "s" + str(self.section_id[0]) + "_g" + str(self.section_id[1])
 
-    def save(self, path):
-        if exists(path):
-            self.logger.warning("Section already exists.")
-        else:
-            mkdir(path)
-            tile_id_map_path = self.get_name() + "_tile_id_map.npz"
+    def save(self):
+        assert self.save_dir is not None, "Save dir not set."
+        mkdir(self.save_dir)
+        tile_id_map_path = self.get_name() + "_tile_id_map.npz"
 
-            tiles = {}
-            for tile_id, tile in self.tile_map.items():
-                tiles[tile_id] = tile.get_tile_dict()
+        tiles = {}
+        for tile_id, tile in self.tile_map.items():
+            tiles[tile_id] = tile.get_tile_dict()
 
-            section_dict = {
-                "section_num": self.section_num,
-                "tile_grid_num": self.tile_grid_num,
-                "section_id": self.section_id,
-                "n_tiles": len(self.tile_map),
-                "tile_map": tiles,
-                "tile_id_map": join(".", tile_id_map_path),
-            }
-            with open(join(path, "section.json"), "w") as f:
-                json.dump(section_dict, f, indent=4)
+        section_dict = {
+            "section_num": self.section_num,
+            "tile_grid_num": self.tile_grid_num,
+            "section_id": self.section_id,
+            "n_tiles": len(self.tile_map),
+            "tile_map": tiles,
+            "tile_id_map": join(".", tile_id_map_path),
+        }
+        with open(join(self.save_dir, "section.json"), "w") as f:
+            json.dump(section_dict, f, indent=4)
 
-            if self.tile_id_map is not None:
-                np.savez(join(path, tile_id_map_path), tile_id_map=self.tile_id_map)
+        if self.tile_id_map is not None:
+            np.savez(
+                join(self.save_dir, tile_id_map_path), tile_id_map=self.tile_id_map
+            )
 
     def load(self, path):
         path_ = join(path, "section.json")

@@ -27,16 +27,15 @@ def test_experiment(tmpdir):
             "'slice_counter': 5283}\n"
         )
 
-    exp = Experiment("name", join(tmpdir, "sbem"))
+    exp = Experiment("name", join(tmpdir, "sbem"), tmpdir)
     exp.add_block(join(tmpdir, "sbem", "bloc"), "g0001", 11)
     assert len(exp.blocks) == 1
     assert len(exp.blocks["bloc"].sections) == 1
     assert len(exp.blocks["bloc"].sections[(5283, 1)].tile_map) == 1
 
-    exp.save(join(tmpdir, "experiment"))
-
+    exp.save()
     exp_load = Experiment()
-    exp_load.load(join(tmpdir, "experiment"))
+    exp_load.load(join(tmpdir, "name"))
     assert len(exp_load.blocks) == 1
     assert len(exp_load.blocks["bloc"].sections) == 1
     assert len(exp_load.blocks["bloc"].sections[(5283, 1)].tile_map) == 1

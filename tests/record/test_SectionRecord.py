@@ -1,4 +1,3 @@
-from glob import glob
 from os.path import join
 
 import numpy as np
@@ -9,13 +8,15 @@ from tifffile import imsave
 
 
 def test_section_record(tmpdir):
-    block = BlockRecord(None, "bloc1")
+    block = BlockRecord(None, "bloc1", None)
 
     section_num = 745
     tile_grid_num = 1
-
     section = SectionRecord(
-        block=block, section_num=section_num, tile_grid_num=tile_grid_num
+        block=block,
+        section_num=section_num,
+        tile_grid_num=tile_grid_num,
+        save_dir=tmpdir,
     )
 
     data = np.random.rand(93, 84)
@@ -55,13 +56,11 @@ def test_section_record(tmpdir):
 
     assert section.get_name() == f"s{section_num}_g{tile_grid_num}"
 
-    section_path = join(tmpdir, section.get_name())
-    section.save(section_path)
-    print(glob(join(section_path, "*")))
+    section.save()
     load_section = SectionRecord(
-        block=block, section_num=section_num, tile_grid_num=tile_grid_num
+        block=block, section_num=section_num, tile_grid_num=tile_grid_num, save_dir=None
     )
-    load_section.load(section_path)
+    load_section.load(join(tmpdir, load_section.get_name()))
     assert section.section_num == load_section.section_num
     assert len(load_section.tile_map) == 4
     assert section.get_tile(3).tile_id == 3

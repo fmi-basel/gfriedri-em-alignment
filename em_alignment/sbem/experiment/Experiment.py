@@ -22,13 +22,21 @@ class Experiment:
 
     """
 
-    def __init__(self, name: str = None, sbem_run_path: str = None):
+    def __init__(
+        self, name: str = None, sbem_run_path: str = None, save_dir: str = None
+    ):
         self.logger = Logger(f"Experiment[{name}]")
         self.name = name
 
         if sbem_run_path is not None:
             assert exists(sbem_run_path), f"{sbem_run_path} does not exist."
         self.sbem_run_path = sbem_run_path
+
+        if save_dir is not None:
+            assert exists(save_dir), f"{save_dir} does not exist."
+            self.save_dir = join(save_dir, self.name)
+        else:
+            self.save_dir = None
 
         self.blocks = {}
 
@@ -37,7 +45,7 @@ class Experiment:
 
     def add_block(self, path: str, tile_grid: str, resolution_xy: float):
         block_id = basename(path)
-        block = BlockRecord(self, block_id=block_id)
+        block = BlockRecord(self, block_id=block_id, save_dir=self.save_dir)
 
         tile_grid_num = int(tile_grid[1:])
 
@@ -50,7 +58,9 @@ class Experiment:
         for tile_spec in tqdm(tile_specs, desc="Build Block Record"):
             section = block.get_section(tile_spec["z"], tile_grid_num)
             if section is None:
-                section = SectionRecord(block, tile_spec["z"], tile_grid_num)
+                section = SectionRecord(
+                    block, tile_spec["z"], tile_grid_num, block.save_dir
+                )
 
             tile = section.get_tile(tile_spec["tile_id"])
             if tile is None:
@@ -78,23 +88,21 @@ class Experiment:
         for section in tqdm(block.sections.values(), desc="Build " "tile-id-maps"):
             section.compute_tile_id_map()
 
-    def save(self, path):
-        if exists(path):
-            self.logger.warning("Experiment already exists.")
-        else:
-            mkdir(path)
-            exp_dict = {
-                "name": self.name,
-                "sbem_run_path": self.sbem_run_path,
-                "n_blocks": len(self.blocks),
-                "blocks": list(self.blocks.keys()),
-            }
-            with open(join(path, "experiment.json"), "w") as f:
-                json.dump(exp_dict, f, indent=4)
+    def save(self):
+        assert self.save_dir is not None, "Save directory not set."
+        mkdir(self.save_dir)
+        exp_dict = {
+            "name": self.name,
+            "save_dir": self.save_dir,
+            "sbem_run_path": self.sbem_run_path,
+            "n_blocks": len(self.blocks),
+            "blocks": list(self.blocks.keys()),
+        }
+        with open(join(self.save_dir, "experiment.json"), "w") as f:
+            json.dump(exp_dict, f, indent=4)
 
-            for block_name, block in self.blocks.items():
-                block_dir = join(path, block_name)
-                block.save(block_dir)
+        for block_name, block in self.blocks.items():
+            block.save()
 
     def load(self, path):
         path_ = join(path, "experiment.json")
@@ -105,7 +113,8 @@ class Experiment:
                 exp_dict = json.load(f)
 
             self.name = exp_dict["name"]
+            self.save_dir = exp_dict["save_dir"]
             self.sbem_run_path = exp_dict["sbem_run_path"]
             for block_name in exp_dict["blocks"]:
-                block = BlockRecord(self, block_name)
+                block = BlockRecord(self, block_name, self.save_dir)
                 block.load(join(path, block_name))
