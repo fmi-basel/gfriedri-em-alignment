@@ -5,8 +5,6 @@ import jax.numpy as jnp
 import numpy as np
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
-from em_alignment.sbem.record.SectionRecord import SectionRecord
-
 
 def default_mesh_integration_config(stride: int = 20, k0: float = 0.01, k: float = 0.1):
     return mesh.IntegrationConfig(
@@ -41,7 +39,8 @@ def default_sofima_config():
 
 
 def register_tiles(
-    section: SectionRecord,
+    tile_space,
+    tile_map,
     stride: int,
     batch_size: int = 4,
     min_peak_ratio: float = 1.4,
@@ -53,9 +52,7 @@ def register_tiles(
     reconcile_flow_max_deviation: float = -1,
     integration_config: mesh.IntegrationConfig = default_mesh_integration_config(),
 ):
-    section.compute_tile_id_map()
-    tile_space = section.tile_id_map.shape
-    tile_map = section.get_tile_data_map()
+
     cx, cy = stitch_rigid.compute_coarse_offsets(tile_space, tile_map)
 
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
