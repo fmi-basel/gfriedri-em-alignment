@@ -1,11 +1,9 @@
 import functools as ft
-from os.path import join
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 from sbem.record.SectionRecord import SectionRecord
-from skimage.io import imsave
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
 
@@ -41,7 +39,7 @@ def default_sofima_config():
     }
 
 
-def stitch_tiles(
+def register_tiles(
     section: SectionRecord,
     stride: int,
     batch_size: int = 4,
@@ -57,10 +55,10 @@ def stitch_tiles(
     section.compute_tile_id_map()
     tile_space = section.tile_id_map.shape
     tile_map = section.get_tile_data_map()
-    cx, cy = stitch_rigid.compute_coarse_offset(tile_space, tile_map)
+    cx, cy = stitch_rigid.compute_coarse_offsets(tile_space, tile_map)
 
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
-
+    print("coarse mesh done.")
     cx = np.squeeze(cx)
     cy = np.squeeze(cy)
     fine_x, offsets_x = stitch_elastic.compute_flow_map(
@@ -69,7 +67,7 @@ def stitch_tiles(
     fine_y, offsets_y = stitch_elastic.compute_flow_map(
         tile_map, cy, 1, stride=(stride, stride), batch_size=batch_size
     )
-
+    print("stitch_ealastic.compute_flow_map done.")
     fine_x = {
         k: flow_utils.clean_flow(
             v[:, np.newaxis, ...],
@@ -90,7 +88,7 @@ def stitch_tiles(
         )[:, 0, :, :]
         for k, v in fine_y.items()
     }
-
+    print("clean flow done.")
     fine_x = {
         k: flow_utils.reconcile_flows(
             [v[:, np.newaxis, ...]],
@@ -109,13 +107,14 @@ def stitch_tiles(
         )[:, 0, :, :]
         for k, v in fine_y.items()
     }
-
+    print("reoncile flows done.")
     data_x = (cx, fine_x, offsets_x)
     data_y = (cy, fine_y, offsets_y)
 
     fx, fy, x, nbors, key_to_idx = stitch_elastic.aggregate_arrays(
         data_x, data_y, tile_map, coarse_mesh[:, 0, ...], stride=(stride, stride)
     )
+    print("aggregate arrays done.")
 
     @jax.jit
     def prev_fn(x):
@@ -124,29 +123,29 @@ def stitch_tiles(
         return jnp.transpose(x, [1, 0, 2, 3])
 
     x, ekin, t = mesh.relax_mesh(x, None, integration_config, prev_fn=prev_fn)
-
+    print("relax mesh done.")
     # Unpack meshes into a dictionary.
     idx_to_key = {v: k for k, v in key_to_idx.items()}
     meshes = {idx_to_key[i]: np.array(x[:, i : i + 1]) for i in range(x.shape[1])}
 
-    # Warp the tiles into a single image.
-    stitched, mask = warp.render_tiles(tile_map, meshes, stride=(stride, stride))
+    return meshes
 
-    name = (
-        f"exp-{section.block.experiment.name}_"
-        f"block-{section.block.block_id}_"
-        f"section-{section.section_num:05d}_"
-        f"grid-{section.tile_grid_num}"
+
+def render_tiles(
+    tile_map,
+    meshes,
+    stride,
+    parallelism=1,
+    use_clahe: bool = False,
+    clahe_kwargs: ... = None,
+):
+    # Warp the tiles into a single image.
+    stitched, mask = warp.render_tiles(
+        tile_map,
+        meshes,
+        stride=(stride, stride),
+        parallelism=parallelism,
+        use_clahe=use_clahe,
+        clahe_kwargs=clahe_kwargs,
     )
-    imsave(
-        join(section.save_dir, name + ".tif"),
-        stitched,
-        compress=6,
-        check_contrast=False,
-    )
-    imsave(
-        join(section.save_dir, name + "_mask.tif"),
-        mask.astype(np.int8),
-        compress=6,
-        check_contrast=False,
-    )
+    return stitched, mask
