@@ -4,11 +4,12 @@ from logging import Logger
 from os import mkdir
 from os.path import exists, join
 
-from sbem.experiment.parse_utils import get_tile_metadata
-from sbem.record.BlockRecord import BlockRecord
-from sbem.record.SectionRecord import SectionRecord
-from sbem.record.TileRecord import TileRecord
 from tqdm import tqdm
+
+from em_alignment.sbem.experiment.parse_utils import get_tile_metadata
+from em_alignment.sbem.record.BlockRecord import BlockRecord
+from em_alignment.sbem.record.SectionRecord import SectionRecord
+from em_alignment.sbem.record.TileRecord import TileRecord
 
 
 class Experiment:
