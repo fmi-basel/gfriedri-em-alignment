@@ -73,8 +73,12 @@ class SectionRecord:
         :return: tile-data-map
         """
         tile_data_map = {}
-        for tile in self.tile_map.values():
-            tile_data_map[(tile.x, tile.y)] = tile.get_tile_data()
+        for y in range(self.tile_id_map.shape[0]):
+            for x in range(self.tile_id_map.shape[1]):
+                if self.tile_id_map[y, x] != -1:
+                    tile_data_map[(x, y)] = self.tile_map[
+                        self.tile_id_map[y, x]
+                    ].get_tile_data()
         return tile_data_map
 
     def compute_tile_id_map(self):
