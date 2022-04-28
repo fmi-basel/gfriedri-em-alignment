@@ -4,9 +4,10 @@ from os import mkdir
 from os.path import exists, join
 
 import numpy as np
-from sbem.experiment import Experiment
-from sbem.record.SectionRecord import SectionRecord
 from tqdm import tqdm
+
+from em_alignment.sbem.experiment import Experiment
+from em_alignment.sbem.record.SectionRecord import SectionRecord
 
 
 class BlockRecord:
