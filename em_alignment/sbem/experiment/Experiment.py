@@ -2,7 +2,7 @@ import json
 from glob import glob
 from logging import Logger
 from os import mkdir
-from os.path import basename, exists, join
+from os.path import exists, join
 
 from sbem.experiment.parse_utils import get_tile_metadata
 from sbem.record.BlockRecord import BlockRecord
@@ -13,24 +13,29 @@ from tqdm import tqdm
 
 class Experiment:
     """
-    from sbem.experiment import Experiment
-    exp = Experiment("20210630_Dp_190326Bb_run04", "/tungstenfs/landing/gmicro_sem/gemini_data/20210630_Dp_190326Bb_run04")
-    exp.add_block("/tungstenfs/landing/gmicro_sem/gemini_data"
-                  "/20210630_Dp_190326Bb_run04", "g0001", 11)
-    exp.save("/home/tibuch/Data/gfriedri/20210630_Dp_190326Bb_run04")
-    exp.load("/home/tibuch/Data/gfriedri/20210630_Dp_190326Bb_run04")
+    An experiment consists of multiple blocks. Every block is made up of
+    many sections. Each section contains many tiles.
 
+    `Experiment` is a data structure that keeps track of the blocks,
+    sections, and tiles once they are acquired by the Friedrich lab at FMI.
+
+    Once the `Experiment` data structure is built it can be saved to disk.
+    Saving creates a new directory in `save_dir` with the `name` of the
+    `Experiment`. The directory contains a `experiment.json` file. Among
+    general information this file contains a list of blocks assigned to this
+    `Experiment`. The blocks itself are saved as additional directories in
+    `Experiment`.
     """
 
-    def __init__(
-        self, name: str = None, sbem_run_path: str = None, save_dir: str = None
-    ):
+    def __init__(self, name: str = None, save_dir: str = None):
+        """
+        :param name: Used as save name.
+        :param save_dir: The directory where this data structure and all
+        processed data should be saved. Preferably this is different from
+        `sbem_run_dir`.
+        """
         self.logger = Logger(f"Experiment[{name}]")
         self.name = name
-
-        if sbem_run_path is not None:
-            assert exists(sbem_run_path), f"{sbem_run_path} does not exist."
-        self.sbem_run_path = sbem_run_path
 
         if save_dir is not None:
             assert exists(save_dir), f"{save_dir} does not exist."
@@ -41,18 +46,38 @@ class Experiment:
         self.blocks = {}
 
     def register_block(self, block: BlockRecord):
+        """
+        Register a block with this experiment.
+
+        :param block: to register
+        """
         self.blocks[block.block_id] = block
 
-    def add_block(self, path: str, tile_grid: str, resolution_xy: float):
-        block_id = basename(path)
-        block = BlockRecord(self, block_id=block_id, save_dir=self.save_dir)
+    def add_block(
+        self, sbem_root_dir: str, name: str, tile_grid: str, resolution_xy: float
+    ):
+        """
+        A helper function to parse the SBEM directory structure of a block.
+
+        A new block is created and all sections are created and regsiter
+        with this block. To every section all tiles of `tile_grid` and
+        `resolution_xy` are added. For every section the tile-id-map is
+        computed.
+
+        :param path: to the directory containing the block acquisition data.
+        :param tile_grid: identifier e.g. 'g0001'
+        :param resolution_xy: of the acquisitions in nm
+        """
+        block = BlockRecord(
+            self, block_id=name, save_dir=self.save_dir, sbem_root_dir=sbem_root_dir
+        )
 
         tile_grid_num = int(tile_grid[1:])
 
-        metadata_files = sorted(glob(join(path, "meta", "logs", "metadata_*")))
+        metadata_files = sorted(glob(join(sbem_root_dir, "meta", "logs", "metadata_*")))
 
         tile_specs = get_tile_metadata(
-            self.sbem_run_path, metadata_files, tile_grid_num, resolution_xy
+            sbem_root_dir, metadata_files, tile_grid_num, resolution_xy
         )
 
         for tile_spec in tqdm(tile_specs, desc="Build Block Record"):
@@ -89,12 +114,17 @@ class Experiment:
             section.compute_tile_id_map()
 
     def save(self):
+        """
+        Saves to `save_dir`.
+        Each block is saved in a sub-dir. Every section is saved in a
+        sub-dir of the block-dir. Every section contains the `tile-id-map`
+        saved as npz and a list of all tiles in json.
+        """
         assert self.save_dir is not None, "Save directory not set."
         mkdir(self.save_dir)
         exp_dict = {
             "name": self.name,
             "save_dir": self.save_dir,
-            "sbem_run_path": self.sbem_run_path,
             "n_blocks": len(self.blocks),
             "blocks": list(self.blocks.keys()),
         }
@@ -105,6 +135,11 @@ class Experiment:
             block.save()
 
     def load(self, path):
+        """
+        Load an experiment from disk.
+
+        :param path: to the experiment directory.
+        """
         path_ = join(path, "experiment.json")
         if not exists(path_):
             self.logger.warning(f"Experiment not found: {path_}")
@@ -114,7 +149,7 @@ class Experiment:
 
             self.name = exp_dict["name"]
             self.save_dir = exp_dict["save_dir"]
-            self.sbem_run_path = exp_dict["sbem_run_path"]
             for block_name in exp_dict["blocks"]:
-                block = BlockRecord(self, block_name, self.save_dir)
+                block = BlockRecord(None, None, None, None)
                 block.load(join(path, block_name))
+                self.register_block(block)

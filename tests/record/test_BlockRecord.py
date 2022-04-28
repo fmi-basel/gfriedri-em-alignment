@@ -10,7 +10,9 @@ from sbem.record.SectionRecord import SectionRecord
 def test_block_record(tmpdir):
     exp = Experiment(None, None)
 
-    block = BlockRecord(experiment=exp, block_id="bloc1", save_dir=tmpdir)
+    block = BlockRecord(
+        experiment=exp, sbem_root_dir=str(tmpdir), block_id="bloc1", save_dir=tmpdir
+    )
 
     section = SectionRecord(block, 1, 1, block.save_dir)
 
@@ -31,7 +33,7 @@ def test_block_record(tmpdir):
 
     block.save()
 
-    block_load = BlockRecord(None, None, None)
+    block_load = BlockRecord(None, None, None, None)
     block_load.load(join(tmpdir, "bloc1"))
 
     assert len(block_load.sections) == 3

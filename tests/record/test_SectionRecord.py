@@ -8,7 +8,7 @@ from tifffile import imsave
 
 
 def test_section_record(tmpdir):
-    block = BlockRecord(None, "bloc1", None)
+    block = BlockRecord(None, None, "bloc1", None)
 
     section_num = 745
     tile_grid_num = 1

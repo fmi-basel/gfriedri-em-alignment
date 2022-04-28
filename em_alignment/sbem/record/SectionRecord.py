@@ -9,6 +9,10 @@ from sbem.record.TileRecord import TileRecord
 
 
 class SectionRecord:
+    """
+    A section in an SBEM experiment belongs to a block and contains many tiles.
+    """
+
     def __init__(
         self,
         block: BlockRecord,
@@ -16,6 +20,12 @@ class SectionRecord:
         tile_grid_num: int,
         save_dir: str = None,
     ):
+        """
+        :param block: to which this section belongs.
+        :param section_num: Number of this section.
+        :param tile_grid_num: Tile grid number of this section.
+        :param save_dir: Directory to which this section is saved.
+        """
         self.logger = Logger("Section Record")
         self.block = block
         self.section_num = section_num
@@ -36,21 +46,43 @@ class SectionRecord:
             self.block.register_section(self)
 
     def register_tile(self, tile: TileRecord):
+        """
+        Register a tile with this section.
+
+        :param tile: to register.
+        """
         self.tile_map[tile.tile_id] = tile
 
     def get_tile(self, tile_id: int):
+        """
+        Get tile registered with this section.
+
+        :param tile_id:
+        :return: `TileRecord` or `None` if tile does not exist.
+        """
         if tile_id in self.tile_map.keys():
             return self.tile_map[tile_id]
         else:
             return None
 
     def get_tile_data_map(self):
+        """
+        Get a tile-data-map mapping tile (x, y) coordinates to the loaded
+        image data.
+
+        :return: tile-data-map
+        """
         tile_data_map = {}
         for tile in self.tile_map.values():
             tile_data_map[(tile.x, tile.y)] = tile.get_tile_data()
         return tile_data_map
 
     def compute_tile_id_map(self):
+        """
+        Computes te tile-id-map mapping (y, x) coordinates to a tile.
+
+        :return: tile-id-map
+        """
         tile_to_coords = {}
         for t in self.tile_map.values():
             tile_to_coords[t.tile_id] = tuple([t.x, t.y])
@@ -68,9 +100,15 @@ class SectionRecord:
             self.tile_id_map[yy.index(y), xx.index(x)] = t
 
     def get_name(self):
+        """
+        :return: section name i.e. 's{section_number}_g{grid_number}'
+        """
         return "s" + str(self.section_id[0]) + "_g" + str(self.section_id[1])
 
     def save(self):
+        """
+        Save section to `save_dir`.
+        """
         assert self.save_dir is not None, "Save dir not set."
         mkdir(self.save_dir)
         tile_id_map_path = self.get_name() + "_tile_id_map.npz"
@@ -96,6 +134,11 @@ class SectionRecord:
             )
 
     def load(self, path):
+        """
+        Load section from disk.
+
+        :param path: to section directory.
+        """
         path_ = join(path, "section.json")
         if not exists(path_):
             self.logger.warning(f"Section not found: {path_}")
