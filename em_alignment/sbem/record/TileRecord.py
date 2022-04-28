@@ -11,6 +11,11 @@ if TYPE_CHECKING:
 
 
 class TileRecord:
+    """
+    A tile belongs to a section, which belongs to a block, which belongs to
+    a SBEM experiment.
+    """
+
     def __init__(
         self,
         section: SectionRecord,
@@ -20,6 +25,14 @@ class TileRecord:
         y: float,
         resolution_xy: float,
     ):
+        """
+        :param section: to which this tile belongs.
+        :param path: to the tile image file.
+        :param tile_id: of the tile.
+        :param x: global pixel-coordinate of the tile.
+        :param y: global pixel-coordinate of the tile.
+        :param resolution_xy: of the image data.
+        """
         self.logger = Logger("Tile Record")
         self.section = section
 
@@ -36,9 +49,19 @@ class TileRecord:
             self.section.register_tile(self)
 
     def get_tile_data(self):
+        """
+        Load tile image data.
+
+        :return: tile data
+        """
         return imread(self.path)
 
     def get_tile_dict(self):
+        """
+        Dict summary of this tile.
+
+        :return: dict
+        """
         tile_dict = {
             "path": self.path,
             "tile_id": self.tile_id,

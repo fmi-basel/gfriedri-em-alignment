@@ -10,9 +10,28 @@ from tqdm import tqdm
 
 
 class BlockRecord:
-    def __init__(self, experiment: Experiment, block_id: str, save_dir: str):
+    """
+    A block of an SBEM experiment. A block contains many sections. If an
+    experiment is provided the block registers itself with the experiment.
+    """
+
+    def __init__(
+        self, experiment: Experiment, sbem_root_dir: str, block_id: str, save_dir: str
+    ):
+        """
+
+        :param experiment: to which this block belongs.
+        :param sbem_root_dir: where the image data is saved.
+        :param block_id: name of the block.
+        :param save_dir: where this block is saved.
+        """
         self.logger = Logger("Block Record")
         self.experiment = experiment
+
+        if sbem_root_dir is not None:
+            assert exists(sbem_root_dir), f"{sbem_root_dir} does not exist."
+        self.sbem_root_dir = sbem_root_dir
+
         self.block_id = block_id
         if save_dir is not None:
             self.save_dir = join(save_dir, self.block_id)
@@ -25,9 +44,21 @@ class BlockRecord:
             self.experiment.register_block(self)
 
     def register_section(self, section: SectionRecord):
+        """
+        Register a section with this block.
+
+        :param section: to register.
+        """
         self.sections[section.section_id] = section
 
     def get_section(self, section_num: int, tile_grid_num: int = 0):
+        """
+        Get a section registered with this block.
+
+        :param section_num: Number of the section.
+        :param tile_grid_num: Tile grid number of the section.
+        :return: `SectionRecord`
+        """
         id_ = tuple([section_num, tile_grid_num])
         if id_ in self.sections.keys():
             return self.sections[id_]
@@ -35,15 +66,24 @@ class BlockRecord:
             return None
 
     def get_section_range(self):
+        """
+        :return: Sorted array containing all section numbers.
+        """
         return np.array(
             sorted(section.section_num for section in self.sections.values())
         )
 
     def has_missing_section(self):
+        """
+        :return: True if a section is missing.
+        """
         z_diff = np.diff(self.get_section_range())
         return (z_diff > 1).any()
 
     def get_missing_sections(self):
+        """
+        :return: Array of missing sections.
+        """
         existing_sections = self.get_section_range()
         missing_sections = []
         for i in range(existing_sections[0], existing_sections[-1]):
@@ -52,11 +92,15 @@ class BlockRecord:
         return np.array(missing_sections)
 
     def save(self):
+        """
+        Save this block to disk.
+        """
         assert self.save_dir is not None, "Save dir is not set."
         mkdir(self.save_dir)
         block_dict = {
             "block_id": self.block_id,
             "save_dir": self.save_dir,
+            "sbem_root_dir": self.sbem_root_dir,
             "n_section": len(self.sections),
             "sections": list(self.sections.keys()),
         }
@@ -67,6 +111,10 @@ class BlockRecord:
             section.save()
 
     def load(self, path):
+        """
+        Load block from disk.
+        :param path: to block directory.
+        """
         path_ = join(path, "block.json")
         if not exists(path_):
             self.logger.warning(f"Block not found: {path_}")
@@ -76,6 +124,7 @@ class BlockRecord:
 
             self.block_id = block_dict["block_id"]
             self.save_dir = block_dict["save_dir"]
+            self.sbem_root_dir = block_dict["sbem_root_dir"]
             for (section_num, tile_grid_num) in tqdm(
                 block_dict["sections"], desc="Loading Sections"
             ):
