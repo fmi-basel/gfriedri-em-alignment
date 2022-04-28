@@ -150,6 +150,7 @@ class Experiment:
             self.name = exp_dict["name"]
             self.save_dir = exp_dict["save_dir"]
             for block_name in exp_dict["blocks"]:
-                block = BlockRecord(None, None, None, None)
+                block = BlockRecord(self, None, None, None)
                 block.load(join(path, block_name))
+                block.experiment = self
                 self.register_block(block)
