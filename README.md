@@ -7,14 +7,7 @@ gfriedri-em-alignment: stitching and alignment of  EM stacks
 gfriedri-em-alignment is a tool that does stitching and alignment of tiled volumentric electron microscopy (EM) data. It takes the images and metadata of the EM stack, acquired using the [SBEMimage](https://github.com/SBEMimage/SBEMimage) software, and uses the [SOFIMA](https://github.com/google-research/sofima) tool to perform the stitching and alignment.
 
 # Installation
-To install the tool, you can clone the repository and install with pip.
-```shell
-git clone git@github.com:fmi-basel/gfriedri-em-alignment.git
-cd gfriedri-em-alignment
-pip install -e .
-```
-Alternatively, you can install this package directly with pip.
-
+The tool can be installed via pip
 ```shell
   pip install git+https://github.com/google-research/sofima
 ```
