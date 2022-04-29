@@ -13,10 +13,12 @@ def get_acquisition_config(metadata_path: str):
     :param metadata_path:
     :return: config
     """
-    dir_, name_ = split(metadata_path)
-    conf_path = join(dir_, name_.replace("metadata", "config"))
-    config = ConfigParser()
-    config.read(conf_path)
+    with open(metadata_path) as f:
+        session_line = f.readline()
+        if not session_line.startswith("SESSION"):
+            raise ValueError("Metadata file is not in the correct format. It should start with the SESSION entry. File path: {metadata_path}")
+        session_line_trimmed = session_line.replace("SESSION: ", "", 1).replace("'", '"')
+        config = json.loads(session_line_trimmed)
     return config
 
 
@@ -85,9 +87,8 @@ def get_tile_metadata(
     tile_specs = []
     for mf in tqdm(metadata_files, desc="Collect Metadata"):
         config = get_acquisition_config(mf)
-        grid_is_active = json.loads(config["grids"]["grid_active"])[tile_grid_num]
-        grid_pixel_size = json.loads(config["grids"]["pixel_size"])[tile_grid_num]
-        if grid_is_active and grid_pixel_size == resolution_xy:
+        grid_pixel_size = config["pixel_sizes"][tile_grid_num]
+        if grid_pixel_size == resolution_xy:
             tile_specs += read_tile_metadata(sbem_root_dir, mf, resolution_xy)
         else:
             print("Acquisition parameters changed. Only returning first stack.")
