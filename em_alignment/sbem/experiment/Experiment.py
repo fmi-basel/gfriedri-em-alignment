@@ -122,7 +122,8 @@ class Experiment:
         saved as npz and a list of all tiles in json.
         """
         assert self.save_dir is not None, "Save directory not set."
-        mkdir(self.save_dir)
+        if not exists(self.save_dir):
+            mkdir(self.save_dir)
         exp_dict = {
             "name": self.name,
             "save_dir": self.save_dir,

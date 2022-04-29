@@ -97,7 +97,8 @@ class BlockRecord:
         Save this block to disk.
         """
         assert self.save_dir is not None, "Save dir is not set."
-        mkdir(self.save_dir)
+        if not exists(self.save_dir):
+            mkdir(self.save_dir)
         block_dict = {
             "block_id": self.block_id,
             "save_dir": self.save_dir,
