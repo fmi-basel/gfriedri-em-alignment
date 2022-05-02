@@ -1,6 +1,5 @@
 import json
 from glob import glob
-from logging import Logger
 from os import mkdir
 from os.path import exists, join
 
@@ -28,14 +27,14 @@ class Experiment:
     `Experiment`.
     """
 
-    def __init__(self, name: str = None, save_dir: str = None):
+    def __init__(self, name: str = None, save_dir: str = None, logger=None):
         """
         :param name: Used as save name.
         :param save_dir: The directory where this data structure and all
         processed data should be saved. Preferably this is different from
         `sbem_run_dir`.
         """
-        self.logger = Logger(f"Experiment[{name}]")
+        self.logger = logger
         self.name = name
 
         if save_dir is not None:
@@ -46,15 +45,15 @@ class Experiment:
 
         self.blocks = {}
 
-    def register_block(self, block: BlockRecord):
+    def add_block(self, block: BlockRecord):
         """
-        Register a block with this experiment.
+        Add a block to this experiment.
 
         :param block: to register
         """
         self.blocks[block.block_id] = block
 
-    def add_block(
+    def parse_block(
         self, sbem_root_dir: str, name: str, tile_grid: str, resolution_xy: float
     ):
         """
@@ -70,7 +69,11 @@ class Experiment:
         :param resolution_xy: of the acquisitions in nm
         """
         block = BlockRecord(
-            self, block_id=name, save_dir=self.save_dir, sbem_root_dir=sbem_root_dir
+            self,
+            block_id=name,
+            save_dir=self.save_dir,
+            sbem_root_dir=sbem_root_dir,
+            logger=self.logger,
         )
 
         tile_grid_num = int(tile_grid[1:])
@@ -85,7 +88,11 @@ class Experiment:
             section = block.get_section(tile_spec["z"], tile_grid_num)
             if section is None:
                 section = SectionRecord(
-                    block, tile_spec["z"], tile_grid_num, block.save_dir
+                    block,
+                    tile_spec["z"],
+                    tile_grid_num,
+                    block.save_dir,
+                    logger=self.logger,
                 )
 
             tile = section.get_tile(tile_spec["tile_id"])
@@ -97,19 +104,21 @@ class Experiment:
                     x=tile_spec["x"],
                     y=tile_spec["y"],
                     resolution_xy=resolution_xy,
+                    logger=self.logger,
                 )
             else:
-                self.logger.warning(
-                    "Tile {} in section {} already exists. "
-                    "Skipping. "
-                    "Existing tile path: {}; "
-                    "Skipped tile path: {}".format(
-                        tile.tile_id,
-                        section.section_num,
-                        tile.path,
-                        tile_spec["tile_file"],
+                if self.logger is not None:
+                    self.logger.warning(
+                        "Tile {} in section {} already exists. "
+                        "Skipping. "
+                        "Existing tile path: {}; "
+                        "Skipped tile path: {}".format(
+                            tile.tile_id,
+                            section.section_num,
+                            tile.path,
+                            tile_spec["tile_file"],
+                        )
                     )
-                )
 
         for section in tqdm(block.sections.values(), desc="Build " "tile-id-maps"):
             section.compute_tile_id_map()
@@ -142,7 +151,7 @@ class Experiment:
         :param path: to the experiment directory.
         """
         path_ = join(path, "experiment.json")
-        if not exists(path_):
+        if not exists(path_) and self.logger is not None:
             self.logger.warning(f"Experiment not found: {path_}")
         else:
             with open(path_) as f:
@@ -151,7 +160,7 @@ class Experiment:
             self.name = exp_dict["name"]
             self.save_dir = exp_dict["save_dir"]
             for block_name in exp_dict["blocks"]:
-                block = BlockRecord(self, None, None, None)
+                block = BlockRecord(None, None, None, None, logger=self.logger)
                 block.load(join(path, block_name))
                 block.experiment = self
-                self.register_block(block)
+                self.add_block(block)

@@ -29,19 +29,19 @@ def test_section_record(tmpdir):
     tile_03 = TileRecord(
         section, path=data_path, tile_id=3, x=0, y=0, resolution_xy=1.2
     )
-    section.register_tile(tile_03)
+    section.add_tile(tile_03)
     tile_18 = TileRecord(
         section, path=data_path, tile_id=18, x=10, y=0, resolution_xy=1.2
     )
-    section.register_tile(tile_18)
+    section.add_tile(tile_18)
     tile_20 = TileRecord(
         section, path=data_path, tile_id=20, x=0, y=9, resolution_xy=1.2
     )
-    section.register_tile(tile_20)
+    section.add_tile(tile_20)
     tile_04 = TileRecord(
         section, path=data_path, tile_id=4, x=10, y=9, resolution_xy=1.2
     )
-    section.register_tile(tile_04)
+    section.add_tile(tile_04)
 
     assert section.get_tile(3) == tile_03
     assert section.get_tile(18) == tile_18

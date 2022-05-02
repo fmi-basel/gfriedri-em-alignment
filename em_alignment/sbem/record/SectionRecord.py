@@ -1,5 +1,4 @@
 import json
-from logging import Logger
 from os import mkdir
 from os.path import exists, join
 
@@ -20,6 +19,7 @@ class SectionRecord:
         section_num: int,
         tile_grid_num: int,
         save_dir: str = None,
+        logger=None,
     ):
         """
         :param block: to which this section belongs.
@@ -27,7 +27,7 @@ class SectionRecord:
         :param tile_grid_num: Tile grid number of this section.
         :param save_dir: Directory to which this section is saved.
         """
-        self.logger = Logger("Section Record")
+        self.logger = logger
         self.block = block
         self.section_num = section_num
         self.tile_grid_num = tile_grid_num
@@ -44,11 +44,11 @@ class SectionRecord:
         self.tile_id_map = None
 
         if self.block is not None:
-            self.block.register_section(self)
+            self.block.add_section(self)
 
-    def register_tile(self, tile: TileRecord):
+    def add_tile(self, tile: TileRecord):
         """
-        Register a tile with this section.
+        Add a tile to this section.
 
         :param tile: to register.
         """
@@ -145,7 +145,7 @@ class SectionRecord:
         :param path: to section directory.
         """
         path_ = join(path, "section.json")
-        if not exists(path_):
+        if not exists(path_) and self.logger is not None:
             self.logger.warning(f"Section not found: {path_}")
         else:
             with open(path_) as f:
@@ -166,8 +166,9 @@ class SectionRecord:
                     x=tile_dict["x"],
                     y=tile_dict["y"],
                     resolution_xy=tile_dict["resolution_xy"],
+                    logger=self.logger,
                 )
-                self.register_tile(t)
+                self.add_tile(t)
 
             tile_id_map_path = join(path, self.get_name() + "_tile_id_map.npz")
             if exists(tile_id_map_path):
