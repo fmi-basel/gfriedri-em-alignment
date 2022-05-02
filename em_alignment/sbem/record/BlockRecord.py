@@ -1,5 +1,4 @@
 import json
-from logging import Logger
 from os import mkdir
 from os.path import exists, join
 
@@ -17,7 +16,12 @@ class BlockRecord:
     """
 
     def __init__(
-        self, experiment: Experiment, sbem_root_dir: str, block_id: str, save_dir: str
+        self,
+        experiment: Experiment,
+        sbem_root_dir: str,
+        block_id: str,
+        save_dir: str,
+        logger=None,
     ):
         """
 
@@ -26,7 +30,7 @@ class BlockRecord:
         :param block_id: name of the block.
         :param save_dir: where this block is saved.
         """
-        self.logger = Logger("Block Record")
+        self.logger = logger
         self.experiment = experiment
 
         if sbem_root_dir is not None:
@@ -42,11 +46,11 @@ class BlockRecord:
         self.sections = {}
 
         if self.experiment is not None:
-            self.experiment.register_block(self)
+            self.experiment.add_block(self)
 
-    def register_section(self, section: SectionRecord):
+    def add_section(self, section: SectionRecord):
         """
-        Register a section with this block.
+        Add a section to this block.
 
         :param section: to register.
         """
@@ -117,7 +121,7 @@ class BlockRecord:
         :param path: to block directory.
         """
         path_ = join(path, "block.json")
-        if not exists(path_):
+        if not exists(path_) and self.logger is not None:
             self.logger.warning(f"Block not found: {path_}")
         else:
             with open(path_) as f:
@@ -129,5 +133,7 @@ class BlockRecord:
             for (section_num, tile_grid_num) in tqdm(
                 block_dict["sections"], desc="Loading Sections"
             ):
-                section = SectionRecord(self, section_num, tile_grid_num, self.save_dir)
+                section = SectionRecord(
+                    self, section_num, tile_grid_num, self.save_dir, logger=self.logger
+                )
                 section.load(join(path, section.get_name()))

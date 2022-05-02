@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from logging import Logger
 from os.path import exists
 from typing import TYPE_CHECKING
 
@@ -24,6 +23,7 @@ class TileRecord:
         x: float,
         y: float,
         resolution_xy: float,
+        logger=None,
     ):
         """
         :param section: to which this tile belongs.
@@ -33,10 +33,10 @@ class TileRecord:
         :param y: global pixel-coordinate of the tile.
         :param resolution_xy: of the image data.
         """
-        self.logger = Logger("Tile Record")
+        self.logger = logger
         self.section = section
 
-        if not exists(path):
+        if not exists(path) and self.logger is not None:
             self.logger.warning(f"{path} does not exist.")
         self.path = path
 
@@ -46,7 +46,7 @@ class TileRecord:
         self.resolution_xy = resolution_xy
 
         if self.section is not None:
-            self.section.register_tile(self)
+            self.section.add_tile(self)
 
     def get_tile_data(self):
         """
