@@ -2,10 +2,9 @@ from os.path import join
 
 import numpy as np
 from numpy.testing import assert_array_equal
+from record import SectionRecord
+from record.TileRecord import TileRecord
 from tifffile import imsave
-
-from sbem.record import SectionRecord
-from sbem.record.TileRecord import TileRecord
 
 
 def test_tile_record(tmpdir):

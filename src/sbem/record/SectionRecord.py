@@ -3,9 +3,8 @@ from os import mkdir
 from os.path import exists, join
 
 import numpy as np
-
-from sbem.record import BlockRecord
-from sbem.record.TileRecord import TileRecord
+from record import BlockRecord
+from record.TileRecord import TileRecord
 
 
 class SectionRecord:

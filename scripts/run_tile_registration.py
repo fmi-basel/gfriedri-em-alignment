@@ -1,10 +1,10 @@
 import argparse
 import configparser
 
+from experiment import Experiment
 from sofima import mesh
 
-from sbem import parallel_tile_registration
-from sbem.experiment import Experiment
+from src.sbem import parallel_tile_registration
 
 
 def config_to_dict(config):

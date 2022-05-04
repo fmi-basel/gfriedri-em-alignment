@@ -1,11 +1,10 @@
 from os.path import join
 
 import numpy as np
+from record import SectionRecord
+from record.BlockRecord import BlockRecord
+from record.TileRecord import TileRecord
 from tifffile import imsave
-
-from sbem.record import SectionRecord
-from sbem.record.BlockRecord import BlockRecord
-from sbem.record.TileRecord import TileRecord
 
 
 def test_section_record(tmpdir):

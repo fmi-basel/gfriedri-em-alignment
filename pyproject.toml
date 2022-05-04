@@ -4,4 +4,4 @@ build-backend = "setuptools.build_meta"
 
 
 [tool.setuptools_scm]
-write_to = "sbem/_version.py"
+write_to = "src/sbem/_version.py"
