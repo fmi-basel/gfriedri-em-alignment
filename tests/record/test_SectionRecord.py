@@ -1,9 +1,9 @@
 from os.path import join
 
 import numpy as np
-from sbem.record.BlockRecord import BlockRecord
-from sbem.record.SectionRecord import SectionRecord
-from sbem.record.TileRecord import TileRecord
+from record import SectionRecord
+from record.BlockRecord import BlockRecord
+from record.TileRecord import TileRecord
 from tifffile import imsave
 
 

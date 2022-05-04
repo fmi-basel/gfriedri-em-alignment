@@ -4,8 +4,8 @@ from os.path import exists, join
 
 import numpy as np
 
-from em_alignment.sbem.record import BlockRecord
-from em_alignment.sbem.record.TileRecord import TileRecord
+from sbem.record import BlockRecord
+from sbem.record.TileRecord import TileRecord
 
 
 class SectionRecord:
@@ -128,7 +128,7 @@ class SectionRecord:
             "section_id": self.section_id,
             "n_tiles": len(self.tile_map),
             "tile_map": tiles,
-            "tile_id_map": join(".", tile_id_map_path),
+            "tile_id_map": join("", tile_id_map_path),
         }
         with open(join(self.save_dir, "section.json"), "w") as f:
             json.dump(section_dict, f, indent=4)
