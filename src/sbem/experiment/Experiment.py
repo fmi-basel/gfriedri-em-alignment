@@ -5,10 +5,10 @@ from os.path import exists, join
 
 from tqdm import tqdm
 
-from em_alignment.sbem.experiment.parse_utils import get_tile_metadata
-from em_alignment.sbem.record.BlockRecord import BlockRecord
-from em_alignment.sbem.record.SectionRecord import SectionRecord
-from em_alignment.sbem.record.TileRecord import TileRecord
+from src.sbem.experiment.parse_utils import get_tile_metadata
+from src.sbem.record.BlockRecord import BlockRecord
+from src.sbem.record.SectionRecord import SectionRecord
+from src.sbem.record.TileRecord import TileRecord
 
 
 class Experiment:

@@ -4,8 +4,8 @@ from os.path import exists, join
 
 import numpy as np
 
-from em_alignment.sbem.record import BlockRecord
-from em_alignment.sbem.record.TileRecord import TileRecord
+from src.sbem.record import BlockRecord
+from src.sbem.record.TileRecord import TileRecord
 
 
 class SectionRecord:
