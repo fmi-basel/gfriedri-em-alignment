@@ -5,8 +5,8 @@ from os.path import exists, join
 import numpy as np
 from tqdm import tqdm
 
-from src.sbem.experiment import Experiment
-from src.sbem.record.SectionRecord import SectionRecord
+from sbem.experiment import Experiment
+from sbem.record.SectionRecord import SectionRecord
 
 
 class BlockRecord:

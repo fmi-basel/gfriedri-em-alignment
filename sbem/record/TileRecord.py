@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from skimage.io import imread
 
 if TYPE_CHECKING:
-    from src.sbem.record.SectionRecord import SectionRecord
+    from sbem.record.SectionRecord import SectionRecord
 
 
 class TileRecord:
