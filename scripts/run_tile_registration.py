@@ -3,8 +3,8 @@ import configparser
 
 from sofima import mesh
 
+from sbem import parallel_tile_registration
 from sbem.experiment import Experiment
-from sbem.tile_stitching.sofima_utils import parallel_tile_registration
 
 
 def config_to_dict(config):

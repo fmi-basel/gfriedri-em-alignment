@@ -1,7 +1,7 @@
 import configparser
 from os.path import join
 
-from sbem.experiment.parse_utils import (
+from sbem.experiment import (
     get_acquisition_config,
     get_tile_metadata,
     get_tile_spec_from_SBEMtile,
