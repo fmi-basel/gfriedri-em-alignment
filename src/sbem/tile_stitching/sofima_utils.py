@@ -5,9 +5,10 @@ from os.path import join
 import jax
 import jax.numpy as jnp
 import numpy as np
-from record.SectionRecord import SectionRecord
 from skimage.io import imsave
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
+
+from sbem.record.SectionRecord import SectionRecord
 
 
 def default_mesh_integration_config(stride: int = 20, k0: float = 0.01, k: float = 0.1):

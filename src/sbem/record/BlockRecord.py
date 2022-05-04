@@ -3,9 +3,10 @@ from os import mkdir
 from os.path import exists, join
 
 import numpy as np
-from experiment import Experiment
-from record.SectionRecord import SectionRecord
 from tqdm import tqdm
+
+from sbem.experiment import Experiment
+from sbem.record.SectionRecord import SectionRecord
 
 
 class BlockRecord:

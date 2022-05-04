@@ -3,11 +3,12 @@ from glob import glob
 from os import mkdir
 from os.path import exists, join
 
-from experiment.parse_utils import get_tile_metadata
-from record.BlockRecord import BlockRecord
-from record.SectionRecord import SectionRecord
-from record.TileRecord import TileRecord
 from tqdm import tqdm
+
+from sbem.experiment.parse_utils import get_tile_metadata
+from sbem.record.BlockRecord import BlockRecord
+from sbem.record.SectionRecord import SectionRecord
+from sbem.record.TileRecord import TileRecord
 
 
 class Experiment:
