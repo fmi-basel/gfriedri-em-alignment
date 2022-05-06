@@ -149,19 +149,23 @@ def parallel_tile_registration(
     n_workers: int = 4,
 ):
     def apply_register_tiles(section):
-        return register_tiles(
-            section,
-            stride=stride,
-            batch_size=batch_size,
-            min_peak_ratio=min_peak_ratio,
-            min_peak_sharpness=min_peak_sharpness,
-            max_deviation=max_deviation,
-            max_magnitude=max_magnitude,
-            min_patch_size=min_patch_size,
-            max_gradient=max_gradient,
-            reconcile_flow_max_deviation=reconcile_flow_max_deviation,
-            integration_config=integration_config,
-        )
+        try:
+            return register_tiles(
+                section,
+                stride=stride,
+                batch_size=batch_size,
+                min_peak_ratio=min_peak_ratio,
+                min_peak_sharpness=min_peak_sharpness,
+                max_deviation=max_deviation,
+                max_magnitude=max_magnitude,
+                min_patch_size=min_patch_size,
+                max_gradient=max_gradient,
+                reconcile_flow_max_deviation=reconcile_flow_max_deviation,
+                integration_config=integration_config,
+            )
+        except Exception as e:
+            print(f"Encounter error in sectino {section.save_dir}.")
+            print(e)
 
     with ThreadPoolExecutor(max_workers=n_workers) as pool:
         meshes = pool.map(apply_register_tiles, sections)
