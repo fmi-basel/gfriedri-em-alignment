@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import json
 from os import mkdir
 from os.path import exists, join
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from sbem.record import BlockRecord
 from sbem.record.TileRecord import TileRecord
+
+if TYPE_CHECKING:
+    from sbem.record import BlockRecord
 
 
 class SectionRecord:

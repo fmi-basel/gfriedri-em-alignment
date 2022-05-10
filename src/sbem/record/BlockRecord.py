@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import json
 from os import mkdir
 from os.path import exists, join
+from typing import TYPE_CHECKING
 
 import numpy as np
 from tqdm import tqdm
 
-from sbem.experiment import Experiment
 from sbem.record.SectionRecord import SectionRecord
+
+if TYPE_CHECKING:
+    from sbem.experiment import Experiment
 
 
 class BlockRecord:
