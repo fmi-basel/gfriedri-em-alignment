@@ -152,4 +152,4 @@ venv/
 .DS_Store
 
 # written by setuptools_scm
-**/_version.py
+src/sbem/_version.py

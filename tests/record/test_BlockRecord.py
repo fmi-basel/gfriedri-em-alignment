@@ -1,10 +1,10 @@
 from os.path import join
 
 import numpy as np
+from experiment import Experiment
 from numpy.testing import assert_array_equal
-from sbem.experiment.Experiment import Experiment
-from sbem.record.BlockRecord import BlockRecord
-from sbem.record.SectionRecord import SectionRecord
+from record import SectionRecord
+from record.BlockRecord import BlockRecord
 
 
 def test_block_record(tmpdir):

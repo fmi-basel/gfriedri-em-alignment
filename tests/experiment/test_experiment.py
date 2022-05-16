@@ -2,7 +2,7 @@ import configparser
 from os import makedirs
 from os.path import join
 
-from sbem.experiment.Experiment import Experiment
+from experiment import Experiment
 
 
 def test_experiment(tmpdir):
@@ -28,7 +28,7 @@ def test_experiment(tmpdir):
         )
 
     exp = Experiment("name", tmpdir)
-    exp.add_block(join(tmpdir, "sbem", "bloc"), "bloc", "g0001", 11)
+    exp.parse_block(join(tmpdir, "sbem", "bloc"), "bloc", "g0001", 11)
     assert len(exp.blocks) == 1
     assert len(exp.blocks["bloc"].sections) == 1
     assert len(exp.blocks["bloc"].sections[(5283, 1)].tile_map) == 1
