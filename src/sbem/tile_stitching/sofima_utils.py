@@ -1,11 +1,10 @@
 import functools as ft
-from concurrent.futures import ThreadPoolExecutor
-from os.path import join
+from os.path import exists, join
 
 import jax
 import jax.numpy as jnp
 import numpy as np
-from skimage.io import imsave
+import ray
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
 from sbem.record.SectionRecord import SectionRecord
@@ -134,8 +133,9 @@ def register_tiles(
     return mesh_path
 
 
-def parallel_tile_registration(
-    sections: list[SectionRecord],
+@ray.remote(num_gpus=1 / 9.0, max_calls=1)
+def run_sofima(
+    section: SectionRecord,
     stride: int,
     batch_size: int = 8000,
     min_peak_ratio: float = 1.4,
@@ -146,31 +146,34 @@ def parallel_tile_registration(
     max_gradient: float = -1,
     reconcile_flow_max_deviation: float = -1,
     integration_config: mesh.IntegrationConfig = default_mesh_integration_config(),
-    n_workers: int = 4,
 ):
-    def apply_register_tiles(section):
-        try:
-            return register_tiles(
-                section,
-                stride=stride,
-                batch_size=batch_size,
-                min_peak_ratio=min_peak_ratio,
-                min_peak_sharpness=min_peak_sharpness,
-                max_deviation=max_deviation,
-                max_magnitude=max_magnitude,
-                min_patch_size=min_patch_size,
-                max_gradient=max_gradient,
-                reconcile_flow_max_deviation=reconcile_flow_max_deviation,
-                integration_config=integration_config,
-            )
-        except Exception as e:
-            print(f"Encounter error in sectino {section.save_dir}.")
-            print(e)
+    import os
 
-    with ThreadPoolExecutor(max_workers=n_workers) as pool:
-        meshes = pool.map(apply_register_tiles, sections)
+    os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+    os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
+    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / 9.0)
 
-    return list(meshes)
+    from sbem.tile_stitching.sofima_utils import register_tiles
+
+    try:
+        register_tiles(
+            section,
+            stride=stride,
+            batch_size=batch_size,
+            min_peak_ratio=min_peak_ratio,
+            min_peak_sharpness=min_peak_sharpness,
+            max_deviation=max_deviation,
+            max_magnitude=max_magnitude,
+            min_patch_size=min_patch_size,
+            max_gradient=max_gradient,
+            reconcile_flow_max_deviation=reconcile_flow_max_deviation,
+            integration_config=integration_config,
+        )
+        return section
+    except Exception as e:
+        print(f"Encounter error in sectino {section.save_dir}.")
+        print(e)
+        return section
 
 
 def render_tiles(
@@ -181,36 +184,39 @@ def render_tiles(
     clahe_kwargs: ... = None,
 ):
     tile_map = section.get_tile_data_map()
-    data = np.load(join(section.save_dir, "meshes.npz"))
-    meshes = {tuple(int(i) for i in k[1:-1].split(",")): v for k, v in data.items()}
-    # Warp the tiles into a single image.
-    stitched, mask = warp.render_tiles(
-        tile_map,
-        meshes,
-        stride=(stride, stride),
-        parallelism=parallelism,
+    if exists(join(section.save_dir, "meshes.npz")):
+        data = np.load(join(section.save_dir, "meshes.npz"))
+        meshes = {tuple(int(i) for i in k[1:-1].split(",")): v for k, v in data.items()}
+        # Warp the tiles into a single image.
+        stitched, mask = warp.render_tiles(
+            tile_map,
+            meshes,
+            stride=(stride, stride),
+            parallelism=parallelism,
+            use_clahe=use_clahe,
+            clahe_kwargs=clahe_kwargs,
+        )
+
+        return stitched, mask
+
+
+@ray.remote(num_cpus=1)
+def run_warp_and_save(
+    section: SectionRecord,
+    stride: int,
+    use_clahe: bool = False,
+    clahe_kwargs: ... = None,
+):
+    from sbem.tile_stitching.sofima_utils import render_tiles
+
+    stitched, mask = render_tiles(
+        section,
+        stride=stride,
+        parallelism=1,
         use_clahe=use_clahe,
         clahe_kwargs=clahe_kwargs,
     )
-    name = (
-        f"exp-{section.block.experiment.name}_"
-        f"block-{section.block.block_id}_"
-        f"section-{section.section_num:05d}_"
-        f"grid-{section.tile_grid_num}"
-    )
 
-    stitched_path = join(section.save_dir, name + ".tif")
-    imsave(
-        stitched_path,
-        stitched,
-        compress=6,
-        check_contrast=False,
-    )
-    mask_path = join(section.save_dir, name + "_mask.tif")
-    imsave(
-        mask_path,
-        mask.astype(np.int8),
-        compress=6,
-        check_contrast=False,
-    )
-    return stitched_path, mask_path
+    section.write_stitched(stitched=stitched, mask=mask)
+
+    return section
