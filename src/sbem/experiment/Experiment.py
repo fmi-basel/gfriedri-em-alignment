@@ -42,11 +42,9 @@ class Experiment:
             assert exists(save_dir), f"{save_dir} does not exist."
             self.save_dir = join(save_dir, self.name)
         else:
-            self.save_dir = "."
+            self.save_dir = join(".", self.name)
 
-        self.zarr_root = zarr.open(
-            zarr.N5FSStore(join(self.save_dir, self.name)), mode="a"
-        )
+        self.zarr_root = zarr.open(zarr.N5FSStore(self.save_dir), mode="a")
 
         self.blocks = {}
 
