@@ -43,6 +43,14 @@ class BlockRecord:
         self.sbem_root_dir = sbem_root_dir
 
         self.block_id = block_id
+
+        if self.block_id in self.experiment.zarr_root.keys():
+            self.zarr_block = self.experiment.zarr_root[self.block_id]
+        else:
+            self.zarr_block = self.experiment.zarr_root.create_group(
+                self.block_id, overwrite=False
+            )
+
         if save_dir is not None:
             self.save_dir = join(save_dir, self.block_id)
         else:

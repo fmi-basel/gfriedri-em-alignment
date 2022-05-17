@@ -6,6 +6,7 @@ from os.path import exists, join
 from typing import TYPE_CHECKING
 
 import numpy as np
+from numcodecs import Blosc
 
 from sbem.record.TileRecord import TileRecord
 
@@ -38,6 +39,12 @@ class SectionRecord:
         self.tile_grid_num = tile_grid_num
 
         self.section_id = tuple([self.section_num, self.tile_grid_num])
+        if self.get_name() in self.block.zarr_block.keys():
+            self.zarr_section = self.block.zarr_block[self.get_name()]
+        else:
+            self.zarr_section = self.block.zarr_block.create_group(
+                self.get_name(), overwrite=False
+            )
 
         if save_dir is not None:
             self.save_dir = join(save_dir, self.get_name())
@@ -115,12 +122,31 @@ class SectionRecord:
         """
         return "s" + str(self.section_id[0]) + "_g" + str(self.section_id[1])
 
+    def write_stitched(self, stitched, mask):
+        zarr_mask = self.zarr_section.create(
+            f"mask_grid-{self.section_id[1]}",
+            shape=mask.shape,
+            chunks=4096,
+            dtype=mask.dtype,
+            compressor=Blosc(cname="zstd", clevel=9, shuffle=Blosc.BITSHUFFLE),
+        )
+        zarr_mask[...] = mask[...]
+        zarr_stitched = self.zarr_section.create(
+            f"stitched_grid-{self.section_id[1]}",
+            shape=stitched.shape,
+            chunks=4096,
+            dtype=stitched.dtype,
+            compressor=Blosc(cname="zstd", clevel=3, shuffle=Blosc.SHUFFLE),
+        )
+        zarr_stitched[...] = stitched[...]
+
     def save(self):
         """
         Save section to `save_dir`.
         """
         assert self.save_dir is not None, "Save dir not set."
-        mkdir(self.save_dir)
+        if not exists(self.save_dir):
+            mkdir(self.save_dir)
         tile_id_map_path = self.get_name() + "_tile_id_map.npz"
 
         tiles = {}

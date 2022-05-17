@@ -3,6 +3,7 @@ from glob import glob
 from os import mkdir
 from os.path import exists, join
 
+import zarr
 from tqdm import tqdm
 
 from sbem.experiment.parse_utils import get_tile_metadata
@@ -41,7 +42,9 @@ class Experiment:
             assert exists(save_dir), f"{save_dir} does not exist."
             self.save_dir = join(save_dir, self.name)
         else:
-            self.save_dir = None
+            self.save_dir = join(".", self.name)
+
+        self.zarr_root = zarr.open(zarr.N5FSStore(self.save_dir), mode="a")
 
         self.blocks = {}
 
@@ -160,8 +163,13 @@ class Experiment:
 
             self.name = exp_dict["name"]
             self.save_dir = exp_dict["save_dir"]
+            self.zarr_root = zarr.open(zarr.N5FSStore(join(self.save_dir)), mode="a")
             for block_name in exp_dict["blocks"]:
-                block = BlockRecord(None, None, None, None, logger=self.logger)
+                block = BlockRecord(
+                    self,
+                    block_id=block_name,
+                    save_dir=self.save_dir,
+                    sbem_root_dir=None,
+                    logger=self.logger,
+                )
                 block.load(join(path, block_name))
-                block.experiment = self
-                self.add_block(block)

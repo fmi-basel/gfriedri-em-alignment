@@ -9,6 +9,7 @@ def config_to_dict(config):
     default = config["DEFAULT"]
     register_tiles = config["REGISTER_TILES"]
     mesh_conf = config["MESH_INTEGRATION_CONFIG"]
+    warp_conf = config["WARP_CONFIG"]
     kwargs = {
         "sbem_experiment": default["sbem_experiment"],
         "block": default["block"],
@@ -17,6 +18,9 @@ def config_to_dict(config):
         "end_section": int(register_tiles["end_section"]),
         "batch_size": int(register_tiles["batch_size"]),
         "stride": int(register_tiles["stride"]),
+        "overlaps_x": tuple(int(o) for o in register_tiles["overlaps_x"].split(",")),
+        "overlaps_y": tuple(int(o) for o in register_tiles["overlaps_y"].split(",")),
+        "min_overlap": int(register_tiles["min_overlap"]),
         "min_peak_ratio": float(register_tiles["min_peak_ratio"]),
         "min_peak_sharpness": float(register_tiles["min_peak_sharpness"]),
         "max_deviation": float(register_tiles["max_deviation"]),
@@ -39,6 +43,10 @@ def config_to_dict(config):
         "start_cap": float(mesh_conf["start_cap"]),
         "final_cap": float(mesh_conf["final_cap"]),
         "remove_drift": mesh_conf["remove_drift"] == "True",
+        "use_clahe": warp_conf["use_clahe"] == "True",
+        "kernel_size": int(warp_conf["kernel_size"]),
+        "clip_limit": float(warp_conf["clip_limit"]),
+        "nbins": int(warp_conf["nbins"]),
     }
 
     return kwargs
