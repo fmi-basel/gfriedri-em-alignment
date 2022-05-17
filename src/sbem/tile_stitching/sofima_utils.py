@@ -45,6 +45,9 @@ def default_sofima_config():
 def register_tiles(
     section: SectionRecord,
     stride: int,
+    overlaps_x: tuple,
+    overlaps_y: tuple,
+    min_overlap: int,
     batch_size: int = 8000,
     min_peak_ratio: float = 1.4,
     min_peak_sharpness: float = 1.4,
@@ -57,7 +60,12 @@ def register_tiles(
 ):
     tile_space = section.tile_id_map.shape
     tile_map = section.get_tile_data_map()
-    cx, cy = stitch_rigid.compute_coarse_offsets(tile_space, tile_map)
+    cx, cy = stitch_rigid.compute_coarse_offsets(
+        tile_space,
+        tile_map,
+        overlaps_xy=(overlaps_x, overlaps_y),
+        min_overlap=min_overlap,
+    )
 
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
 
@@ -137,6 +145,9 @@ def register_tiles(
 def run_sofima(
     section: SectionRecord,
     stride: int,
+    overlaps_x: tuple,
+    overlaps_y: tuple,
+    min_overlap: int,
     batch_size: int = 8000,
     min_peak_ratio: float = 1.4,
     min_peak_sharpness: float = 1.4,
@@ -159,6 +170,9 @@ def run_sofima(
         register_tiles(
             section,
             stride=stride,
+            overlaps_x=overlaps_x,
+            overlaps_y=overlaps_y,
+            min_overlap=min_overlap,
             batch_size=batch_size,
             min_peak_ratio=min_peak_ratio,
             min_peak_sharpness=min_peak_sharpness,
@@ -179,6 +193,7 @@ def run_sofima(
 def render_tiles(
     section: SectionRecord,
     stride,
+    margin=50,
     parallelism=1,
     use_clahe: bool = False,
     clahe_kwargs: ... = None,
@@ -192,6 +207,7 @@ def render_tiles(
             tile_map,
             meshes,
             stride=(stride, stride),
+            margin=margin,
             parallelism=parallelism,
             use_clahe=use_clahe,
             clahe_kwargs=clahe_kwargs,
@@ -204,6 +220,7 @@ def render_tiles(
 def run_warp_and_save(
     section: SectionRecord,
     stride: int,
+    marging: int = 50,
     use_clahe: bool = False,
     clahe_kwargs: ... = None,
 ):
@@ -212,6 +229,7 @@ def run_warp_and_save(
     stitched, mask = render_tiles(
         section,
         stride=stride,
+        maring=marging,
         parallelism=1,
         use_clahe=use_clahe,
         clahe_kwargs=clahe_kwargs,
