@@ -9,6 +9,7 @@ def config_to_dict(config):
     default = config["DEFAULT"]
     register_tiles = config["REGISTER_TILES"]
     mesh_conf = config["MESH_INTEGRATION_CONFIG"]
+    warp_conf = config["WARP_CONFIG"]
     kwargs = {
         "sbem_experiment": default["sbem_experiment"],
         "block": default["block"],
@@ -39,6 +40,10 @@ def config_to_dict(config):
         "start_cap": float(mesh_conf["start_cap"]),
         "final_cap": float(mesh_conf["final_cap"]),
         "remove_drift": mesh_conf["remove_drift"] == "True",
+        "use_clahe": warp_conf["use_clahe"] == "True",
+        "kernel_size": int(warp_conf["kernel_size"]),
+        "clip_limit": float(warp_conf["clip_limit"]),
+        "nbins": int(warp_conf["nbins"]),
     }
 
     return kwargs
