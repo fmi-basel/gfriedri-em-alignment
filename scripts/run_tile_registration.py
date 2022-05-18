@@ -116,7 +116,7 @@ def main():
         )
         warp_obj = run_warp_and_save.remote(
             reg_obj,
-            stride=kwargs["strid"],
+            stride=kwargs["stride"],
             parallelism=1,
             use_clahe=kwargs["use_clahe"],
             clahe_kwargs={
