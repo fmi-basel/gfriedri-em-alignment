@@ -47,6 +47,7 @@ def config_to_dict(config):
         "start_cap": float(mesh_conf["start_cap"]),
         "final_cap": float(mesh_conf["final_cap"]),
         "remove_drift": mesh_conf["remove_drift"] == "True",
+        "margin": int(warp_conf["margin"]),
         "use_clahe": warp_conf["use_clahe"] == "True",
         "kernel_size": int(warp_conf["kernel_size"]),
         "clip_limit": float(warp_conf["clip_limit"]),
@@ -94,10 +95,15 @@ def main():
         remove_drift=kwargs["remove_drift"],
     )
 
-    ray.init(num_gpus=1, num_cpus=20)
+    ray.init(num_gpus=1, num_cpus=22)
+    start = time()
+    reg_refs = []
+    warp_refs = []
+    for i, sec in enumerate(sections):
+        if len(reg_refs) > 6:
+            num_ready = i - 6
+            ray.wait(reg_refs, num_returns=num_ready)
 
-    references = []
-    for sec in sections:
         reg_obj = run_sofima.remote(
             sec,
             stride=kwargs["stride"],
@@ -114,10 +120,11 @@ def main():
             reconcile_flow_max_deviation=kwargs["reconcile_flow_max_deviation"],
             integration_config=integration_config,
         )
+        reg_refs.append(reg_obj)
         warp_obj = run_warp_and_save.remote(
             reg_obj,
-            stride=kwargs["strid"],
-            parallelism=1,
+            stride=kwargs["stride"],
+            margin=kwargs["margin"],
             use_clahe=kwargs["use_clahe"],
             clahe_kwargs={
                 "kernel_size": kwargs["kernel_size"],
@@ -125,16 +132,15 @@ def main():
                 "nbins": kwargs["nbins"],
             },
         )
-        references.append(warp_obj)
+        warp_refs.append(warp_obj)
 
     def print_runtime(sec, start_time, decimals=1):
         print(f"Runtime: {time() - start_time:.{decimals}f} seconds, sections:")
         print(*[s.save_dir for s in sec], sep="\n")
 
-    start = time()
     all_sections = []
-    while len(references) > 0:
-        finished, references = ray.wait(references, num_returns=1)
+    while len(warp_refs) > 0:
+        finished, warp_refs = ray.wait(warp_refs, num_returns=1)
         sec = ray.get(finished)
         print_runtime(sec, start, 1)
         all_sections.append(sec)
