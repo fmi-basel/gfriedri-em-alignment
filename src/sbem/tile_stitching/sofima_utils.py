@@ -185,7 +185,7 @@ def run_sofima(
         )
         return section
     except Exception as e:
-        print(f"Encounter error in sectino {section.save_dir}.")
+        print(f"Encounter error in section {section.save_dir}.")
         print(e)
         return section
 
@@ -214,6 +214,8 @@ def render_tiles(
         )
 
         return stitched, mask
+    else:
+        return None, None
 
 
 @ray.remote(num_cpus=1)
@@ -235,6 +237,7 @@ def run_warp_and_save(
         clahe_kwargs=clahe_kwargs,
     )
 
-    section.write_stitched(stitched=stitched, mask=mask)
+    if stitched is not None and mask is not None:
+        section.write_stitched(stitched=stitched, mask=mask)
 
     return section
