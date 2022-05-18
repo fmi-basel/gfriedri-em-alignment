@@ -37,6 +37,8 @@ class Experiment:
         """
         self.logger = logger
         self.name = name
+        if self.name is None:
+            self.name = "Experiment"
 
         if save_dir is not None:
             assert exists(save_dir), f"{save_dir} does not exist."
