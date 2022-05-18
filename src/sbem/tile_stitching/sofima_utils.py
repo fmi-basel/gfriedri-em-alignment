@@ -220,7 +220,7 @@ def render_tiles(
 def run_warp_and_save(
     section: SectionRecord,
     stride: int,
-    marging: int = 50,
+    margin: int = 50,
     use_clahe: bool = False,
     clahe_kwargs: ... = None,
 ):
@@ -229,7 +229,7 @@ def run_warp_and_save(
     stitched, mask = render_tiles(
         section,
         stride=stride,
-        maring=marging,
+        margin=margin,
         parallelism=1,
         use_clahe=use_clahe,
         clahe_kwargs=clahe_kwargs,

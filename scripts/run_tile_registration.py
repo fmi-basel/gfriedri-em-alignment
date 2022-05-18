@@ -47,6 +47,7 @@ def config_to_dict(config):
         "start_cap": float(mesh_conf["start_cap"]),
         "final_cap": float(mesh_conf["final_cap"]),
         "remove_drift": mesh_conf["remove_drift"] == "True",
+        "margin": int(warp_conf["margin"]),
         "use_clahe": warp_conf["use_clahe"] == "True",
         "kernel_size": int(warp_conf["kernel_size"]),
         "clip_limit": float(warp_conf["clip_limit"]),
@@ -95,7 +96,7 @@ def main():
     )
 
     ray.init(num_gpus=1, num_cpus=20)
-
+    start = time()
     references = []
     for sec in sections:
         reg_obj = run_sofima.remote(
@@ -117,7 +118,7 @@ def main():
         warp_obj = run_warp_and_save.remote(
             reg_obj,
             stride=kwargs["stride"],
-            parallelism=1,
+            margin=kwargs["margin"],
             use_clahe=kwargs["use_clahe"],
             clahe_kwargs={
                 "kernel_size": kwargs["kernel_size"],
@@ -131,7 +132,6 @@ def main():
         print(f"Runtime: {time() - start_time:.{decimals}f} seconds, sections:")
         print(*[s.save_dir for s in sec], sep="\n")
 
-    start = time()
     all_sections = []
     while len(references) > 0:
         finished, references = ray.wait(references, num_returns=1)
