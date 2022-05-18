@@ -141,7 +141,7 @@ def register_tiles(
     return mesh_path
 
 
-@ray.remote(num_gpus=1 / 9.0, max_calls=1)
+@ray.remote(num_gpus=1 / 6.0, max_calls=1)
 def run_sofima(
     section: SectionRecord,
     stride: int,
@@ -162,7 +162,7 @@ def run_sofima(
 
     os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
     os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
-    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / 9.0)
+    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / 6.0)
 
     from sbem.tile_stitching.sofima_utils import register_tiles
 
