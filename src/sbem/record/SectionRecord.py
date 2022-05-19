@@ -129,6 +129,7 @@ class SectionRecord:
             chunks=4096,
             dtype=mask.dtype,
             compressor=Blosc(cname="zstd", clevel=9, shuffle=Blosc.BITSHUFFLE),
+            overwrite=True,
         )
         zarr_mask[...] = mask[...]
         zarr_stitched = self.zarr_section.create(
@@ -137,6 +138,7 @@ class SectionRecord:
             chunks=4096,
             dtype=stitched.dtype,
             compressor=Blosc(cname="zstd", clevel=3, shuffle=Blosc.SHUFFLE),
+            overwrite=True,
         )
         zarr_stitched[...] = stitched[...]
 
