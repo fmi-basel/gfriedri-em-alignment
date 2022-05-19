@@ -1,7 +1,5 @@
 import argparse
 import configparser
-import subprocess
-import time
 from os import mkdir
 from os.path import exists, join
 
@@ -139,12 +137,12 @@ def main():
                 'time \\(seconds\\) : $(( $END-$START ))"\n'
             )
 
-        cmd = f"sbatch {job_file}"
-        p = subprocess.Popen(cmd.split())
-        results, errors = p.communicate()
-        print(results)
-        print(errors)
-        time.sleep(1)
+        # cmd = f"sbatch {job_file}"
+        # p = subprocess.Popen(cmd.split())
+        # results, errors = p.communicate()
+        # print(results)
+        # print(errors)
+        # time.sleep(1)
 
 
 if __name__ == "__main__":
