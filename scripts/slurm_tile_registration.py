@@ -71,7 +71,7 @@ def main():
             config.write(f)
 
     for i, section_start in enumerate(
-        range(kwargs["start_section"], kwargs["end_section"], 100)
+        range(kwargs["start_section"], kwargs["end_section"], 75)
     ):
         with open(join(run_dir, f"tile_registration_{i}.config"), "w") as f:
             config["REGISTER_TILES"]["start_section"] = str(section_start)
@@ -85,6 +85,9 @@ def main():
             f.writelines("#!/bin/bash\n")
             f.writelines(f"#SBATCH --account={config['SLURM']['account']}\n")
             f.writelines(f"#SBATCH --job-name={config['SLURM']['job_name']}\n")
+            f.writelines("#SBATCH --nodes=1\n")
+            f.writelines("#SBATCH --exclusive\n")
+            f.writelines("#SBATCH --ntasks-per-node=1\n")
             f.writelines(
                 f"#SBATCH --cpus-per-task=" f"{config['SLURM']['cpus_per_task']}\n"
             )
@@ -125,8 +128,8 @@ def main():
             )
             f.writelines("EXITCODE =$?\n")
             f.writelines("\n")
-            f.writelines("END=$(date +% s)\n")
-            f.writelines("ENDDATE=$(date - Iseconds)\n")
+            f.writelines("END=$(date +%s)\n")
+            f.writelines("ENDDATE=$(date -Iseconds)\n")
             f.writelines(
                 'echo "[INFO] [$ENDDATE] [$$] Workflow finished '
                 'with code $EXITCODE"\n'
