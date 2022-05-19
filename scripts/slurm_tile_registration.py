@@ -1,6 +1,7 @@
 import argparse
 import configparser
 import subprocess
+import time
 from os import mkdir
 from os.path import exists, join
 
@@ -86,9 +87,7 @@ def main():
             f.writelines("#!/bin/bash\n")
             f.writelines(f"#SBATCH --account={config['SLURM']['account']}\n")
             f.writelines(f"#SBATCH --job-name={config['SLURM']['job_name']}\n")
-            # f.writelines("#SBATCH --nodes=1\n")
-            # f.writelines("#SBATCH --exclusive\n")
-            # f.writelines("#SBATCH --ntasks-per-node=1\n")
+            f.writelines("#SBATCH --exclude=pcl1002\n")
             f.writelines(
                 f"#SBATCH --cpus-per-task=" f"{config['SLURM']['cpus_per_task']}\n"
             )
@@ -141,7 +140,11 @@ def main():
             )
 
         cmd = f"sbatch {job_file}"
-        subprocess.Popen(cmd.split())
+        p = subprocess.Popen(cmd.split())
+        results, errors = p.communicate()
+        print(results)
+        print(errors)
+        time.sleep(1)
 
 
 if __name__ == "__main__":
