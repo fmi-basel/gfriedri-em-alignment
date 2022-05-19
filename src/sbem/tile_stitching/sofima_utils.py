@@ -164,13 +164,6 @@ def run_sofima(
     os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
     os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / 6.0)
 
-    os.environ["NUM_INTER_THREADS"] = "1"
-    os.environ["NUM_INTRA_THREADS"] = "1"
-
-    os.environ["XLA_FLAGS"] = (
-        "--xla_cpu_multi_thread_eigen=false " "intra_op_parallelism_threads=1"
-    )
-
     from sbem.tile_stitching.sofima_utils import register_tiles
 
     try:

@@ -95,10 +95,14 @@ def main():
         remove_drift=kwargs["remove_drift"],
     )
 
-    ray.init(num_gpus=4, num_cpus=50)
+    ray.init(num_gpus=1, num_cpus=22)
     start = time()
     references = []
-    for sec in sections:
+    for i, sec in enumerate(sections):
+        if len(references) > 6:
+            num_ready = i - 6
+            ray.wait(references, num_returns=num_ready)
+
         reg_obj = run_sofima.remote(
             sec,
             stride=kwargs["stride"],
