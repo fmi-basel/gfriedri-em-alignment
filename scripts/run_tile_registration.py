@@ -95,7 +95,7 @@ def main():
         remove_drift=kwargs["remove_drift"],
     )
 
-    ray.init(num_gpus=4)
+    ray.init(num_gpus=4, num_cpus=50)
     start = time()
     references = []
     for sec in sections:
