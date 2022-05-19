@@ -88,9 +88,9 @@ def main():
             f.writelines("#SBATCH --nodes=1\n")
             f.writelines("#SBATCH --exclusive\n")
             f.writelines("#SBATCH --ntasks-per-node=1\n")
-            f.writelines(
-                f"#SBATCH --cpus-per-task=" f"{config['SLURM']['cpus_per_task']}\n"
-            )
+            # f.writelines(
+            #     f"#SBATCH --cpus-per-task=" f"{config['SLURM']['cpus_per_task']}\n"
+            # )
             f.writelines(f"#SBATCH --ntasks={config['SLURM']['ntasks']}\n")
             f.writelines(f"#SBATCH --partition={config['SLURM']['partition']}\n")
             f.writelines(f"#SBATCH --mem={config['SLURM']['mem']}\n")
