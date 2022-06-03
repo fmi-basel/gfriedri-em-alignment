@@ -141,7 +141,7 @@ def register_tiles(
     return mesh_path
 
 
-@ray.remote(num_gpus=1 / 9.0, max_calls=1)
+@ray.remote(num_gpus=1 / 6.0, max_calls=1)
 def run_sofima(
     section: SectionRecord,
     stride: int,
@@ -162,7 +162,7 @@ def run_sofima(
 
     os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
     os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
-    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / 9.0)
+    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / 6.0)
 
     from sbem.tile_stitching.sofima_utils import register_tiles
 
@@ -185,7 +185,7 @@ def run_sofima(
         )
         return section
     except Exception as e:
-        print(f"Encounter error in sectino {section.save_dir}.")
+        print(f"Encounter error in section {section.save_dir}.")
         print(e)
         return section
 
@@ -214,13 +214,15 @@ def render_tiles(
         )
 
         return stitched, mask
+    else:
+        return None, None
 
 
 @ray.remote(num_cpus=1)
 def run_warp_and_save(
     section: SectionRecord,
     stride: int,
-    marging: int = 50,
+    margin: int = 50,
     use_clahe: bool = False,
     clahe_kwargs: ... = None,
 ):
@@ -229,12 +231,13 @@ def run_warp_and_save(
     stitched, mask = render_tiles(
         section,
         stride=stride,
-        maring=marging,
+        margin=margin,
         parallelism=1,
         use_clahe=use_clahe,
         clahe_kwargs=clahe_kwargs,
     )
 
-    section.write_stitched(stitched=stitched, mask=mask)
+    if stitched is not None and mask is not None:
+        section.write_stitched(stitched=stitched, mask=mask)
 
     return section

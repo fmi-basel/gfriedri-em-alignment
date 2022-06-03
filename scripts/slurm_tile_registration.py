@@ -1,6 +1,5 @@
 import argparse
 import configparser
-import subprocess
 from os import mkdir
 from os.path import exists, join
 
@@ -70,13 +69,14 @@ def main():
         with open(join(run_dir, "tile_registration.config"), "w") as f:
             config.write(f)
 
+    n_sections_per_job = 75
     for i, section_start in enumerate(
-        range(kwargs["start_section"], kwargs["end_section"], 100)
+        range(kwargs["start_section"], kwargs["end_section"], n_sections_per_job)
     ):
         with open(join(run_dir, f"tile_registration_{i}.config"), "w") as f:
             config["REGISTER_TILES"]["start_section"] = str(section_start)
             config["REGISTER_TILES"]["end_section"] = str(
-                min(section_start + 100, kwargs["end_section"])
+                min(section_start + n_sections_per_job, kwargs["end_section"])
             )
             config.write(f)
 
@@ -85,6 +85,7 @@ def main():
             f.writelines("#!/bin/bash\n")
             f.writelines(f"#SBATCH --account={config['SLURM']['account']}\n")
             f.writelines(f"#SBATCH --job-name={config['SLURM']['job_name']}\n")
+            f.writelines("#SBATCH --exclude=pcl1002\n")
             f.writelines(
                 f"#SBATCH --cpus-per-task=" f"{config['SLURM']['cpus_per_task']}\n"
             )
@@ -125,8 +126,8 @@ def main():
             )
             f.writelines("EXITCODE =$?\n")
             f.writelines("\n")
-            f.writelines("END=$(date +% s)\n")
-            f.writelines("ENDDATE=$(date - Iseconds)\n")
+            f.writelines("END=$(date +%s)\n")
+            f.writelines("ENDDATE=$(date -Iseconds)\n")
             f.writelines(
                 'echo "[INFO] [$ENDDATE] [$$] Workflow finished '
                 'with code $EXITCODE"\n'
@@ -136,8 +137,12 @@ def main():
                 'time \\(seconds\\) : $(( $END-$START ))"\n'
             )
 
-        cmd = f"sbatch {job_file}"
-        subprocess.Popen(cmd.split())
+        # cmd = f"sbatch {job_file}"
+        # p = subprocess.Popen(cmd.split())
+        # results, errors = p.communicate()
+        # print(results)
+        # print(errors)
+        # time.sleep(1)
 
 
 if __name__ == "__main__":
