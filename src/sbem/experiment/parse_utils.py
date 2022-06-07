@@ -1,4 +1,5 @@
 import json
+import os
 from configparser import ConfigParser
 from os.path import join, split
 from typing import List
@@ -86,6 +87,8 @@ def get_tile_metadata(
     """
     tile_specs = []
     for mf in tqdm(metadata_files, desc="Collect Metadata"):
+        if os.stat(mf).st_size == 0:
+            continue
         config = get_acquisition_config(mf)
         grid_pixel_size = config["pixel_sizes"][tile_grid_num]
         if grid_pixel_size == resolution_xy:
