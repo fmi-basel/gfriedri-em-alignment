@@ -68,9 +68,8 @@ def register_tiles(
     )
 
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
-
-    cx = np.squeeze(cx)
-    cy = np.squeeze(cy)
+    cx = np.squeeze(cx, axis=1)
+    cy = np.squeeze(cy, axis=1)
     fine_x, offsets_x = stitch_elastic.compute_flow_map(
         tile_map, cx, 0, stride=(stride, stride), batch_size=batch_size
     )
