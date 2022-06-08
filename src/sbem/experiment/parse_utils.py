@@ -1,7 +1,6 @@
 import json
 import os
-from configparser import ConfigParser
-from os.path import join, split
+from os.path import join
 from typing import List
 
 from tqdm import tqdm
@@ -17,8 +16,12 @@ def get_acquisition_config(metadata_path: str):
     with open(metadata_path) as f:
         session_line = f.readline()
         if not session_line.startswith("SESSION"):
-            raise ValueError("Metadata file is not in the correct format. It should start with the SESSION entry. File path: {metadata_path}")
-        session_line_trimmed = session_line.replace("SESSION: ", "", 1).replace("'", '"')
+            raise ValueError(
+                "Metadata file is not in the correct format. It should start with the SESSION entry. File path: {metadata_path}"
+            )
+        session_line_trimmed = session_line.replace("SESSION: ", "", 1).replace(
+            "'", '"'
+        )
         config = json.loads(session_line_trimmed)
     return config
 
