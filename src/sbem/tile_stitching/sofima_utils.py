@@ -48,6 +48,7 @@ def register_tiles(
     overlaps_x: tuple,
     overlaps_y: tuple,
     min_overlap: int,
+    patch_size: tuple = (120, 120),
     batch_size: int = 8000,
     min_peak_ratio: float = 1.4,
     min_peak_sharpness: float = 1.4,
@@ -66,15 +67,16 @@ def register_tiles(
         overlaps_xy=(overlaps_x, overlaps_y),
         min_overlap=min_overlap,
     )
-
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
     cx = np.squeeze(cx, axis=1)
     cy = np.squeeze(cy, axis=1)
     fine_x, offsets_x = stitch_elastic.compute_flow_map(
-        tile_map, cx, 0, stride=(stride, stride), batch_size=batch_size
+        tile_map, cx, 0, stride=(stride, stride),
+        patch_size=patch_size, batch_size=batch_size
     )
     fine_y, offsets_y = stitch_elastic.compute_flow_map(
-        tile_map, cy, 1, stride=(stride, stride), batch_size=batch_size
+        tile_map, cy, 1, stride=(stride, stride),
+        patch_size=patch_size, batch_size=batch_size
     )
 
     fine_x = {
@@ -147,6 +149,7 @@ def run_sofima(
     overlaps_x: tuple,
     overlaps_y: tuple,
     min_overlap: int,
+    patch_size: tuple = (120, 120),
     batch_size: int = 8000,
     min_peak_ratio: float = 1.4,
     min_peak_sharpness: float = 1.4,
@@ -172,6 +175,7 @@ def run_sofima(
             overlaps_x=overlaps_x,
             overlaps_y=overlaps_y,
             min_overlap=min_overlap,
+            patch_size=patch_size,
             batch_size=batch_size,
             min_peak_ratio=min_peak_ratio,
             min_peak_sharpness=min_peak_sharpness,
