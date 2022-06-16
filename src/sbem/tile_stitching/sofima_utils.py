@@ -71,12 +71,20 @@ def register_tiles(
     cx = np.squeeze(cx, axis=1)
     cy = np.squeeze(cy, axis=1)
     fine_x, offsets_x = stitch_elastic.compute_flow_map(
-        tile_map, cx, 0, stride=(stride, stride),
-        patch_size=patch_size, batch_size=batch_size
+        tile_map,
+        cx,
+        0,
+        stride=(stride, stride),
+        patch_size=patch_size,
+        batch_size=batch_size,
     )
     fine_y, offsets_y = stitch_elastic.compute_flow_map(
-        tile_map, cy, 1, stride=(stride, stride),
-        patch_size=patch_size, batch_size=batch_size
+        tile_map,
+        cy,
+        1,
+        stride=(stride, stride),
+        patch_size=patch_size,
+        batch_size=batch_size,
     )
 
     fine_x = {
