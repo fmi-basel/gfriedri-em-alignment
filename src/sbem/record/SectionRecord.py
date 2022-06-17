@@ -24,6 +24,9 @@ class SectionRecord:
         block: BlockRecord,
         section_num: int,
         tile_grid_num: int,
+        tile_width: int = None,
+        tile_height: int = None,
+        tile_overlap: int = None,
         save_dir: str = None,
         logger=None,
     ):
@@ -37,6 +40,9 @@ class SectionRecord:
         self.block = block
         self.section_num = section_num
         self.tile_grid_num = tile_grid_num
+        self.tile_width = tile_width
+        self.tile_height = tile_height
+        self.tile_overlap = tile_overlap
 
         self.section_id = tuple([self.section_num, self.tile_grid_num])
         if self.get_name() in self.block.zarr_block.keys():
@@ -100,21 +106,37 @@ class SectionRecord:
 
         :return: tile-id-map
         """
-        tile_to_coords = {}
-        for t in self.tile_map.values():
-            tile_to_coords[t.tile_id] = tuple([t.x, t.y])
-
         xx, yy = set(), set()
-        for t in tile_to_coords.values():
-            xx.add(t[0])
-            yy.add(t[1])
+        coords_to_tile = {}
+        for t in self.tile_map.values():
+            x, y = int(t.x), int(t.y)
+            if x in coords_to_tile.keys():
+                coords_to_tile[x][y] = t.tile_id
+            else:
+                coords_to_tile[x] = {y: t.tile_id}
+            xx.add(x)
+            yy.add(y)
 
         xx = list(sorted(xx))
         yy = list(sorted(yy))
 
-        self.tile_id_map = np.zeros((len(yy), len(xx)), dtype=int) - 1
-        for t, (x, y) in tile_to_coords.items():
-            self.tile_id_map[yy.index(y), xx.index(x)] = t
+        tile_id_map = [[]]
+        for j_map, j in enumerate(
+            range(yy[0], yy[-1] + 1, self.tile_height - self.tile_overlap)
+        ):
+            for i in range(xx[0], xx[-1] + 1, self.tile_width - self.tile_overlap):
+
+                tile_id = -1
+                if i in coords_to_tile.keys():
+                    if j in coords_to_tile[i].keys():
+                        tile_id = coords_to_tile[i][j]
+
+                if len(tile_id_map) <= j_map:
+                    tile_id_map.append([tile_id])
+                else:
+                    tile_id_map[j_map].append(tile_id)
+
+        self.tile_id_map = np.array(tile_id_map)
 
     def get_name(self):
         """
@@ -158,6 +180,9 @@ class SectionRecord:
         section_dict = {
             "section_num": self.section_num,
             "tile_grid_num": self.tile_grid_num,
+            "tile_height": self.tile_height,
+            "tile_width": self.tile_width,
+            "tile_overlap": self.tile_overlap,
             "section_id": self.section_id,
             "n_tiles": len(self.tile_map),
             "tile_map": tiles,
@@ -190,6 +215,10 @@ class SectionRecord:
             assert (
                 self.tile_grid_num == section_dict["tile_grid_num"]
             ), "{}[tile_grid_num] incompatible with directory tree."
+
+            self.tile_height = section_dict["tile_height"]
+            self.tile_width = section_dict["tile_width"]
+            self.tile_overlap = section_dict["tile_overlap"]
 
             for tile_id, tile_dict in section_dict["tile_map"].items():
                 t = TileRecord(

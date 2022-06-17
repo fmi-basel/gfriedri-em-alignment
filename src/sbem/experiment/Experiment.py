@@ -59,7 +59,14 @@ class Experiment:
         self.blocks[block.block_id] = block
 
     def parse_block(
-        self, sbem_root_dir: str, name: str, tile_grid: str, resolution_xy: float
+        self,
+        sbem_root_dir: str,
+        name: str,
+        tile_grid: str,
+        resolution_xy: float,
+        tile_width: int,
+        tile_height: int,
+        tile_overlap: int,
     ):
         """
         A helper function to parse the SBEM directory structure of a block.
@@ -93,10 +100,13 @@ class Experiment:
             section = block.get_section(tile_spec["z"], tile_grid_num)
             if section is None:
                 section = SectionRecord(
-                    block,
-                    tile_spec["z"],
-                    tile_grid_num,
-                    block.save_dir,
+                    block=block,
+                    section_num=tile_spec["z"],
+                    tile_grid_num=tile_grid_num,
+                    tile_width=tile_width,
+                    tile_height=tile_height,
+                    tile_overlap=tile_overlap,
+                    save_dir=block.save_dir,
                     logger=self.logger,
                 )
 
