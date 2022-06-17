@@ -171,7 +171,7 @@ class SectionRecord:
         assert self.save_dir is not None, "Save dir not set."
         if not exists(self.save_dir):
             mkdir(self.save_dir)
-        tile_id_map_path = self.get_name() + "_tile_id_map.npz"
+        tile_id_map_path = self.get_name() + "_tile_id_map.json"
 
         tiles = {}
         for tile_id, tile in self.tile_map.items():
@@ -192,9 +192,8 @@ class SectionRecord:
             json.dump(section_dict, f, indent=4)
 
         if self.tile_id_map is not None:
-            np.savez(
-                join(self.save_dir, tile_id_map_path), tile_id_map=self.tile_id_map
-            )
+            with open(join(self.save_dir, tile_id_map_path), "w") as f:
+                json.dump(self.tile_id_map.tolist(), f)
 
     def load(self, path):
         """
@@ -232,8 +231,8 @@ class SectionRecord:
                 )
                 self.add_tile(t)
 
-            tile_id_map_path = join(path, self.get_name() + "_tile_id_map.npz")
+            tile_id_map_path = join(path, self.get_name() + "_tile_id_map.json")
             if exists(tile_id_map_path):
-                data = np.load(tile_id_map_path)
-                if "tile_id_map" in data.files:
-                    self.tile_id_map = data["tile_id_map"]
+                with open(tile_id_map_path) as f:
+                    data = json.load(f)
+                    self.tile_id_map = np.array(data)
