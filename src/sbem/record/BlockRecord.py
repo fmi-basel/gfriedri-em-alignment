@@ -148,6 +148,7 @@ class BlockRecord:
                 block_dict["sections"], desc="Loading Sections"
             ):
                 section = SectionRecord(
-                    self, section_num, tile_grid_num, self.save_dir, logger=self.logger
+                    self, section_num, tile_grid_num,
+                    save_dir=self.save_dir, logger=self.logger
                 )
                 section.load(join(path, section.get_name()))
