@@ -143,19 +143,12 @@ class Experiment:
         Saves to `save_dir`.
         Each block is saved in a sub-dir. Every section is saved in a
         sub-dir of the block-dir. Every section contains the `tile-id-map`
-        saved as npz and a list of all tiles in json.
+        saved as json and a list of all tiles in json.
         """
         assert self.save_dir is not None, "Save directory not set."
         if not exists(self.save_dir):
             mkdir(self.save_dir)
-        exp_dict = {
-            "name": self.name,
-            "save_dir": self.save_dir,
-            "n_blocks": len(self.blocks),
-            "blocks": list(self.blocks.keys()),
-        }
-        with open(join(self.save_dir, "experiment.json"), "w") as f:
-            json.dump(exp_dict, f, indent=4)
+        self._save_exp_dict()
 
         for block_name, block in self.blocks.items():
             block.save()
@@ -185,3 +178,29 @@ class Experiment:
                     logger=self.logger,
                 )
                 block.load(join(path, block_name))
+
+    def _save_exp_dict(self):
+        """
+        Save the experiment metadata in json.
+        """
+        exp_dict = {
+            "name": self.name,
+            "save_dir": self.save_dir,
+            "n_blocks": len(self.blocks),
+            "blocks": list(self.blocks.keys()),
+        }
+        with open(join(self.save_dir, "experiment.json"), "w") as f:
+            json.dump(exp_dict, f, indent=4)
+
+    def save_block(self, block_name):
+        """
+        Save a block and update the experiment json file.
+
+        :param block_name: the name of the block.
+        """
+        assert self.save_dir is not None, "Save directory not set."
+        if not exists(self.save_dir):
+            mkdir(self.save_dir)
+        self._save_exp_dict()
+        assert block_name in self.blocks.keys(), f"Block {block_name} does not exist."
+        self.blocks[block_name].save()
