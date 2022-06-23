@@ -153,3 +153,7 @@ venv/
 
 # written by setuptools_scm
 src/sbem/_version.py
+
+# jupyter notebooks
+.ipynb
+scratch_pad/
