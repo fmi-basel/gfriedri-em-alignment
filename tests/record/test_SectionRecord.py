@@ -196,3 +196,6 @@ class SectionTest(TestCase):
         assert section.tile_id_map[2, 0] == 8
         assert section.tile_id_map[2, 1] == -1
         assert section.tile_id_map[2, 2] == 9
+
+        tile_map = section.get_tile_data_map()
+        np.testing.assert_array_equal(tile_map[0, 0], data)

@@ -61,3 +61,5 @@ class ExperimentTest(TestCase):
         assert len(exp_load.blocks) == 1
         assert len(exp_load.blocks["bloc"].sections) == 1
         assert len(exp_load.blocks["bloc"].sections[(5283, 1)].tile_map) == 1
+
+        exp_load.save_block("bloc")
