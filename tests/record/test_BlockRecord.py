@@ -1,41 +1,59 @@
+import os
+import shutil
+import tempfile
 from os.path import join
+from unittest import TestCase
 
 import numpy as np
 from numpy.testing import assert_array_equal
-from sbem.experiment.Experiment import Experiment
+
+from sbem.experiment import Experiment
 from sbem.record.BlockRecord import BlockRecord
 from sbem.record.SectionRecord import SectionRecord
 
 
-def test_block_record(tmpdir):
-    exp = Experiment(None, None)
+class BlockTest(TestCase):
+    def setUp(self) -> None:
+        self.tmp_dir = tempfile.mkdtemp()
 
-    block = BlockRecord(experiment=exp, block_id="bloc1")
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp_dir)
 
-    section = SectionRecord(block, 1, 1)
+    def test_block_record(self):
+        exp_dir = join(self.tmp_dir, "exp")
+        os.mkdir(exp_dir)
+        exp = Experiment("test", exp_dir)
 
-    assert block.get_section(1, 1) == section
-    assert block.get_section(2, 0) is None
+        block = BlockRecord(
+            experiment=exp,
+            sbem_root_dir=str(self.tmp_dir),
+            block_id="bloc1",
+            save_dir=self.tmp_dir,
+        )
 
-    assert block.get_section_range() == np.array([1])
+        section = SectionRecord(block, 1, 1, save_dir=block.save_dir)
 
-    SectionRecord(block, 2, 1)
-    assert_array_equal(block.get_section_range(), np.array([1, 2]))
-    assert not block.has_missing_section()
-    assert block.get_missing_sections().size == 0
+        assert block.get_section(1, 1) == section
+        assert block.get_section(2, 0) is None
 
-    SectionRecord(block, 4, 1)
-    assert_array_equal(block.get_section_range(), np.array([1, 2, 4]))
-    assert block.has_missing_section()
-    assert_array_equal(block.get_missing_sections(), np.array([3]))
+        assert block.get_section_range() == np.array([1])
 
-    block_path = join(tmpdir, "block")
-    block.save(block_path)
+        SectionRecord(block, 2, 1, save_dir=block.save_dir)
+        assert_array_equal(block.get_section_range(), np.array([1, 2]))
+        assert not block.has_missing_section()
+        assert block.get_missing_sections().size == 0
 
-    block_load = BlockRecord(None, None)
-    block_load.load(block_path)
+        SectionRecord(block, 4, 1, save_dir=block.save_dir)
+        assert_array_equal(block.get_section_range(), np.array([1, 2, 4]))
+        assert block.has_missing_section()
+        assert_array_equal(block.get_missing_sections(), np.array([3]))
 
-    assert len(block_load.sections) == 3
-    assert_array_equal(block_load.get_section_range(), np.array([1, 2, 4]))
-    assert block_load.has_missing_section()
-    assert_array_equal(block_load.get_missing_sections(), np.array([3]))
+        block.save()
+
+        block_load = BlockRecord(exp, str(self.tmp_dir), "bloc1", None)
+        block_load.load(join(self.tmp_dir, "bloc1"))
+
+        assert len(block_load.sections) == 3
+        assert_array_equal(block_load.get_section_range(), np.array([1, 2, 4]))
+        assert block_load.has_missing_section()
+        assert_array_equal(block_load.get_missing_sections(), np.array([3]))
