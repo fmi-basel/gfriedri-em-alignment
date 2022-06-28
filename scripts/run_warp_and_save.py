@@ -23,6 +23,7 @@ def config_to_dict(config):
         "clip_limit": float(warp_conf["clip_limit"]),
         "nbins": int(warp_conf["nbins"]),
         "parallelism": int(warp_conf["parallelism"]),
+        "cpus": int(config["SLURM"]["cpus_warp"]),
     }
 
     return kwargs
@@ -77,6 +78,10 @@ if __name__ == "__main__":
 
     kwargs = config_to_dict(config)
 
-    flow.executor = LocalDaskExecutor()
+    flow.executor = LocalDaskExecutor(
+        num_workers=kwargs["cpus"] // kwargs["parallelism"]
+    )
+
+    kwargs.pop("cpus")
 
     flow.run(parameters=kwargs)

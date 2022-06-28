@@ -1,5 +1,6 @@
 import argparse
 import configparser
+import subprocess
 from os import mkdir
 from os.path import exists, join
 
@@ -29,7 +30,6 @@ def config_to_dict(config):
         "reconcile_flow_max_deviation": float(
             register_tiles["reconcile_flow_max_deviation"]
         ),
-        "n_workers": int(register_tiles["n_workers"]),
         "dt": float(mesh_conf["dt"]),
         "gamma": float(mesh_conf["gamma"]),
         "k0": float(mesh_conf["k0"]),
@@ -80,69 +80,117 @@ def main():
             )
             config.write(f)
 
-        job_file = join(run_dir, f"slurm_job_{i}.sh")
-        with open(job_file, "w") as f:
-            f.writelines("#!/bin/bash\n")
-            f.writelines(f"#SBATCH --account={config['SLURM']['account']}\n")
-            f.writelines(f"#SBATCH --job-name={config['SLURM']['job_name']}\n")
-            f.writelines("#SBATCH --exclude=pcl1002\n")
-            f.writelines(
-                f"#SBATCH --cpus-per-task=" f"{config['SLURM']['cpus_per_task']}\n"
-            )
-            f.writelines(f"#SBATCH --ntasks={config['SLURM']['ntasks']}\n")
-            f.writelines(f"#SBATCH --partition={config['SLURM']['partition']}\n")
-            f.writelines(f"#SBATCH --mem={config['SLURM']['mem']}\n")
-            f.writelines(f"#SBATCH --gres={config['SLURM']['gres']}\n")
-            f.writelines(f"#SBATCH --mail-user={config['SLURM']['mail_user']}\n")
-            f.writelines("#SBATCH --mail-type=ALL\n")
-            f.writelines("\n")
-            f.writelines("START=$(date +%s)\n")
-            f.writelines("STARTDATE=$(date -Iseconds)\n")
-            f.writelines(
-                'echo "[INFO] [$STARTDATE] [$$] Starting SOFIMA tile registration with job ID $SLURM_JOB_ID"\n'
-            )
-            f.writelines(
-                'echo "[INFO] [$STARTDATE] [$$] Running in $(' 'hostname -s)"\n'
-            )
-            f.writelines(
-                'echo "[INFO] [$STARTDATE] [$$] Working directory: ' '$(pwd)"\n'
-            )
-            f.writelines("\n")
-            cudnn_dir = config["SLURM"]["cudnn_dir"]
-            f.writelines(f"export " f"CPATH=$CPATH:{cudnn_dir}/local/include/\n")
-            f.writelines(
-                "export " f"LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{cudnn_dir}/local/lib/\n"
-            )
-            cuda = config["SLURM"]["cuda"]
-            f.writelines(f"export PATH=$(echo $PATH | sed 's/cuda/" f"{cuda}/g')\n")
-            sofima_dir = config["SLURM"]["sofima_dir"]
-            f.writelines(f"export PYTHONPATH='{sofima_dir}':$PYTHONPATH\n")
-            f.writelines("\n")
-            conda_env = config["SLURM"]["conda_env"]
-            f.writelines(
-                f"{conda_env}/bin/python "
-                f"{run_dir}/run_tile_registration.py --config "
-                f"{run_dir}/tile_registration_{i}.config\n"
-            )
-            f.writelines("EXITCODE =$?\n")
-            f.writelines("\n")
-            f.writelines("END=$(date +%s)\n")
-            f.writelines("ENDDATE=$(date -Iseconds)\n")
-            f.writelines(
-                'echo "[INFO] [$ENDDATE] [$$] Workflow finished '
-                'with code $EXITCODE"\n'
-            )
-            f.writelines(
-                'echo "[INFO] [$ENDDATE] [$$] Workflow execution '
-                'time \\(seconds\\) : $(( $END-$START ))"\n'
-            )
+        job_file = join(run_dir, f"register_tiles_sj-{i}.sh")
+        write_tile_registration_slurm_job_script(config, i, job_file, run_dir)
 
-        # cmd = f"sbatch {job_file}"
-        # p = subprocess.Popen(cmd.split())
-        # results, errors = p.communicate()
-        # print(results)
-        # print(errors)
-        # time.sleep(1)
+        cmd = f"sbatch {job_file}"
+        p = subprocess.check_output(cmd.split())
+        job_id = p.decode("utf-8").split("Submitted batch job")[1].strip()
+
+        job_file = join(run_dir, f"warp_and_save_sj-{i}.sh")
+        write_warp_and_save_slurm_job_script(config, i, job_file, job_id, run_dir)
+
+        cmd = f"sbatch {job_file}"
+        p = subprocess.check_output(cmd.split())
+
+
+def write_tile_registration_slurm_job_script(config, i, job_file, run_dir):
+    with open(job_file, "w") as f:
+        f.writelines("#!/bin/bash\n")
+        f.writelines(f"#SBATCH --account={config['SLURM']['account']}\n")
+        f.writelines(f"#SBATCH --job-name=" f"{config['SLURM']['job_name']}-register\n")
+        f.writelines(
+            f"#SBATCH --cpus-per-task=" f"{config['SLURM']['cpus_register']}\n"
+        )
+        f.writelines(f"#SBATCH --ntasks={config['SLURM']['ntasks']}\n")
+        f.writelines(f"#SBATCH --partition={config['SLURM']['partition']}\n")
+        f.writelines(f"#SBATCH --mem={config['SLURM']['mem']}\n")
+        f.writelines(f"#SBATCH --gres={config['SLURM']['gres']}\n")
+        f.writelines(f"#SBATCH --mail-user={config['SLURM']['mail_user']}\n")
+        f.writelines("#SBATCH --mail-type=ALL\n")
+        f.writelines("\n")
+        f.writelines("START=$(date +%s)\n")
+        f.writelines("STARTDATE=$(date -Iseconds)\n")
+        f.writelines(
+            'echo "[INFO] [$STARTDATE] [$$] Starting SOFIMA tile registration with job ID $SLURM_JOB_ID"\n'
+        )
+        f.writelines('echo "[INFO] [$STARTDATE] [$$] Running in $(' 'hostname -s)"\n')
+        f.writelines('echo "[INFO] [$STARTDATE] [$$] Working directory: ' '$(pwd)"\n')
+        f.writelines("\n")
+        cudnn_dir = config["SLURM"]["cudnn_dir"]
+        f.writelines(f"export " f"CPATH=$CPATH:{cudnn_dir}/local/include/\n")
+        f.writelines(
+            "export " f"LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{cudnn_dir}/local/lib/\n"
+        )
+        cuda = config["SLURM"]["cuda"]
+        f.writelines(f"export PATH=$(echo $PATH | sed 's/cuda/" f"{cuda}/g')\n")
+        sofima_dir = config["SLURM"]["sofima_dir"]
+        f.writelines(f"export PYTHONPATH='{sofima_dir}':$PYTHONPATH\n")
+        f.writelines("\n")
+        conda_env = config["SLURM"]["conda_env"]
+        f.writelines(
+            f"{conda_env}/bin/python "
+            f"{run_dir}/run_tile_registration.py --config "
+            f"{run_dir}/tile_registration_{i}.config\n"
+        )
+        f.writelines("EXITCODE=$?\n")
+        f.writelines("\n")
+        f.writelines("END=$(date +%s)\n")
+        f.writelines("ENDDATE=$(date -Iseconds)\n")
+        f.writelines(
+            'echo "[INFO] [$ENDDATE] [$$] Workflow finished ' 'with code $EXITCODE"\n'
+        )
+        f.writelines(
+            'echo "[INFO] [$ENDDATE] [$$] Workflow execution '
+            'time \\(seconds\\) : $(( $END-$START ))"\n'
+        )
+
+
+def write_warp_and_save_slurm_job_script(config, i, job_file, job_id, run_dir):
+    with open(job_file, "w") as f:
+        f.writelines("#!/bin/bash\n")
+        f.writelines(f"#SBATCH --account={config['SLURM']['account']}\n")
+        f.writelines(f"#SBATCH --job-name=" f"{config['SLURM']['job_name']}-warp\n")
+        f.writelines(f"#SBATCH --cpus-per-task=" f"{config['SLURM']['cpus_warp']}\n")
+        f.writelines(f"#SBATCH --ntasks={config['SLURM']['ntasks']}\n")
+        f.writelines(f"#SBATCH --mem={config['SLURM']['mem']}\n")
+        f.writelines(f"#SBATCH --dependency=afterany:{job_id}\n")
+        f.writelines(f"#SBATCH --mail-user={config['SLURM']['mail_user']}\n")
+        f.writelines("#SBATCH --mail-type=ALL\n")
+        f.writelines("\n")
+        f.writelines("START=$(date +%s)\n")
+        f.writelines("STARTDATE=$(date -Iseconds)\n")
+        f.writelines(
+            'echo "[INFO] [$STARTDATE] [$$] Starting SOFIMA tile registration with job ID $SLURM_JOB_ID"\n'
+        )
+        f.writelines('echo "[INFO] [$STARTDATE] [$$] Running in $(' 'hostname -s)"\n')
+        f.writelines('echo "[INFO] [$STARTDATE] [$$] Working directory: ' '$(pwd)"\n')
+        f.writelines("\n")
+        cudnn_dir = config["SLURM"]["cudnn_dir"]
+        f.writelines(f"export " f"CPATH=$CPATH:{cudnn_dir}/local/include/\n")
+        f.writelines(
+            "export " f"LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{cudnn_dir}/local/lib/\n"
+        )
+        sofima_dir = config["SLURM"]["sofima_dir"]
+        f.writelines(f"export PYTHONPATH='{sofima_dir}':$PYTHONPATH\n")
+        f.writelines("\n")
+        conda_env = config["SLURM"]["conda_env"]
+        f.writelines(
+            f"{conda_env}/bin/python "
+            f"{run_dir}/run_warp_and_save.py --config "
+            f"{run_dir}/tile_registration_{i}.config\n"
+        )
+        f.writelines("EXITCODE=$?\n")
+        f.writelines("\n")
+        f.writelines("END=$(date +%s)\n")
+        f.writelines("ENDDATE=$(date -Iseconds)\n")
+        f.writelines(
+            'echo "[INFO] [$ENDDATE] [$$] Workflow finished ' 'with code $EXITCODE"\n'
+        )
+        f.writelines(
+            'echo "[INFO] [$ENDDATE] [$$] Workflow execution '
+            'time \\(seconds\\) : $(( $END-$START ))"\n'
+        )
 
 
 if __name__ == "__main__":
