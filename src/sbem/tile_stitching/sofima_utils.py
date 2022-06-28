@@ -4,6 +4,7 @@ from os.path import exists, join
 import jax
 import jax.numpy as jnp
 import numpy as np
+import prefect
 from prefect import task
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
@@ -170,6 +171,9 @@ def run_sofima(
     integration_config: mesh.IntegrationConfig = default_mesh_integration_config(),
     n_workers=6,
 ):
+    logger = prefect.context.get("logger")
+    logger.info(f"Compute mesh for section {section.save_dir}.")
+
     import os
 
     os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
@@ -238,14 +242,18 @@ def run_warp_and_save(
     margin: int = 50,
     use_clahe: bool = False,
     clahe_kwargs: ... = None,
+    parallelism: int = 1,
 ):
+    logger = prefect.context.get("logger")
+    logger.info(f"Warp and save section {section.save_dir}.")
+
     from sbem.tile_stitching.sofima_utils import render_tiles
 
     stitched, mask = render_tiles(
         section,
         stride=stride,
         margin=margin,
-        parallelism=1,
+        parallelism=parallelism,
         use_clahe=use_clahe,
         clahe_kwargs=clahe_kwargs,
     )

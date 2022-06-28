@@ -8,7 +8,6 @@ from sbem.tile_stitching.sofima_utils import (
     build_integration_config,
     load_sections,
     run_sofima,
-    run_warp_and_save,
 )
 
 
@@ -16,7 +15,6 @@ def config_to_dict(config):
     default = config["DEFAULT"]
     register_tiles = config["REGISTER_TILES"]
     mesh_conf = config["MESH_INTEGRATION_CONFIG"]
-    warp_conf = config["WARP_CONFIG"]
     kwargs = {
         "sbem_experiment": default["sbem_experiment"],
         "block": default["block"],
@@ -51,11 +49,6 @@ def config_to_dict(config):
         "start_cap": float(mesh_conf["start_cap"]),
         "final_cap": float(mesh_conf["final_cap"]),
         "remove_drift": mesh_conf["remove_drift"] == "True",
-        "margin": int(warp_conf["margin"]),
-        "use_clahe": warp_conf["use_clahe"] == "True",
-        "kernel_size": int(warp_conf["kernel_size"]),
-        "clip_limit": float(warp_conf["clip_limit"]),
-        "nbins": int(warp_conf["nbins"]),
     }
 
     return kwargs
@@ -96,12 +89,6 @@ with Flow("Tile-Stitching") as flow:
     reconcile_flow_max_deviation = Parameter(
         "reconcile_flow_max_deviation", default=-1.0
     )
-
-    margin = Parameter("margin", default=20)
-    use_clahe = Parameter("use_clahe", default=True)
-    kernel_Size = Parameter("kernel_size", default=1024)
-    clip_limit = Parameter("clip_limit", default=0.01)
-    nbins = Parameter("nbins", default=256)
 
     n_workers = Parameter("n_workers", default=6)
 
@@ -148,19 +135,6 @@ with Flow("Tile-Stitching") as flow:
         n_workers=unmapped(n_workers),
     )
 
-    warp_obj = run_warp_and_save.map(
-        reg_obj,
-        stride=unmapped(stride),
-        margin=unmapped(margin),
-        use_clahe=unmapped(use_clahe),
-        clahe_kwargs=unmapped(
-            {
-                "kernel_size": kernel_Size,
-                "clip_limit": clip_limit,
-                "nbins": nbins,
-            }
-        ),
-    )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
