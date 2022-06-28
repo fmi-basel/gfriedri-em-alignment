@@ -4,9 +4,10 @@ from os.path import exists, join
 import jax
 import jax.numpy as jnp
 import numpy as np
-import ray
+from prefect import task
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
+from sbem.experiment import Experiment
 from sbem.record.SectionRecord import SectionRecord
 
 
@@ -150,7 +151,7 @@ def register_tiles(
     return mesh_path
 
 
-@ray.remote(num_gpus=1 / 6.0, max_calls=1)
+@task()
 def run_sofima(
     section: SectionRecord,
     stride: int,
@@ -167,12 +168,13 @@ def run_sofima(
     max_gradient: float = -1,
     reconcile_flow_max_deviation: float = -1,
     integration_config: mesh.IntegrationConfig = default_mesh_integration_config(),
+    n_workers=6,
 ):
     import os
 
     os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
     os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
-    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / 6.0)
+    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / float(n_workers))
 
     from sbem.tile_stitching.sofima_utils import register_tiles
 
@@ -229,7 +231,7 @@ def render_tiles(
         return None, None
 
 
-@ray.remote(num_cpus=1)
+@task()
 def run_warp_and_save(
     section: SectionRecord,
     stride: int,
@@ -252,3 +254,48 @@ def run_warp_and_save(
         section.write_stitched(stitched=stitched, mask=mask)
 
     return section
+
+
+@task()
+def load_sections(sbem_experiment, block, grid_index, start_section, end_section):
+    exp = Experiment()
+    exp.load(sbem_experiment)
+
+    block = exp.blocks[block]
+
+    return [
+        block.sections[(i, grid_index)] for i in range(start_section, end_section + 1)
+    ]
+
+
+@task()
+def build_integration_config(
+    dt,
+    gamma,
+    k0,
+    k,
+    stride,
+    num_iters,
+    max_iters,
+    stop_v_max,
+    dt_max,
+    prefer_orig_order,
+    start_cap,
+    final_cap,
+    remove_drift,
+):
+    return mesh.IntegrationConfig(
+        dt=dt,
+        gamma=gamma,
+        k0=k0,
+        k=k,
+        stride=stride,
+        num_iters=num_iters,
+        max_iters=max_iters,
+        stop_v_max=stop_v_max,
+        dt_max=dt_max,
+        prefer_orig_order=prefer_orig_order,
+        start_cap=start_cap,
+        final_cap=final_cap,
+        remove_drift=remove_drift,
+    )
