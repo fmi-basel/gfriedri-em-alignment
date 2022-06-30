@@ -4,7 +4,6 @@ from os.path import exists, join
 import jax
 import jax.numpy as jnp
 import numpy as np
-import ray
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
 from sbem.record.SectionRecord import SectionRecord
@@ -150,57 +149,6 @@ def register_tiles(
     return mesh_path
 
 
-@ray.remote(num_gpus=1 / 6.0, max_calls=1)
-def run_sofima(
-    section: SectionRecord,
-    stride: int,
-    overlaps_x: tuple,
-    overlaps_y: tuple,
-    min_overlap: int,
-    patch_size: tuple = (120, 120),
-    batch_size: int = 8000,
-    min_peak_ratio: float = 1.4,
-    min_peak_sharpness: float = 1.4,
-    max_deviation: int = 5,
-    max_magnitude: int = 0,
-    min_patch_size: int = 10,
-    max_gradient: float = -1,
-    reconcile_flow_max_deviation: float = -1,
-    integration_config: mesh.IntegrationConfig = default_mesh_integration_config(),
-):
-    import os
-
-    os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-    os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
-    os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = str(1 / 6.0)
-
-    from sbem.tile_stitching.sofima_utils import register_tiles
-
-    try:
-        register_tiles(
-            section,
-            stride=stride,
-            overlaps_x=overlaps_x,
-            overlaps_y=overlaps_y,
-            min_overlap=min_overlap,
-            patch_size=patch_size,
-            batch_size=batch_size,
-            min_peak_ratio=min_peak_ratio,
-            min_peak_sharpness=min_peak_sharpness,
-            max_deviation=max_deviation,
-            max_magnitude=max_magnitude,
-            min_patch_size=min_patch_size,
-            max_gradient=max_gradient,
-            reconcile_flow_max_deviation=reconcile_flow_max_deviation,
-            integration_config=integration_config,
-        )
-        return section
-    except Exception as e:
-        print(f"Encounter error in section {section.save_dir}.")
-        print(e)
-        return section
-
-
 def render_tiles(
     section: SectionRecord,
     stride,
@@ -227,28 +175,3 @@ def render_tiles(
         return stitched, mask
     else:
         return None, None
-
-
-@ray.remote(num_cpus=1)
-def run_warp_and_save(
-    section: SectionRecord,
-    stride: int,
-    margin: int = 50,
-    use_clahe: bool = False,
-    clahe_kwargs: ... = None,
-):
-    from sbem.tile_stitching.sofima_utils import render_tiles
-
-    stitched, mask = render_tiles(
-        section,
-        stride=stride,
-        margin=margin,
-        parallelism=1,
-        use_clahe=use_clahe,
-        clahe_kwargs=clahe_kwargs,
-    )
-
-    if stitched is not None and mask is not None:
-        section.write_stitched(stitched=stitched, mask=mask)
-
-    return section

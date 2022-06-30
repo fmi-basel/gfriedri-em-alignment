@@ -76,9 +76,14 @@ class Experiment:
         `resolution_xy` are added. For every section the tile-id-map is
         computed.
 
-        :param path: to the directory containing the block acquisition data.
+        :param sbem_root_dir: to the directory containing the block acquisition
+         data.
+        :param name: name of the block
         :param tile_grid: identifier e.g. 'g0001'
         :param resolution_xy: of the acquisitions in nm
+        :param tile_width: Width of the acquired tile in px.
+        :param tile_height: Height of the acquired tile in px.
+        :param tile_overlap: Overlap of acquired tiles in px.
         """
         block = BlockRecord(
             self,

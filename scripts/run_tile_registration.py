@@ -1,19 +1,20 @@
 import argparse
 import configparser
-from time import time
 
-import ray
-from sofima import mesh
+from prefect import Flow, Parameter, unmapped
+from prefect.executors import LocalDaskExecutor
 
-from sbem.experiment import Experiment
-from sbem.tile_stitching.sofima_utils import run_sofima, run_warp_and_save
+from sbem.tile_stitching.sofima_tasks import (
+    build_integration_config,
+    load_sections,
+    run_sofima,
+)
 
 
 def config_to_dict(config):
     default = config["DEFAULT"]
     register_tiles = config["REGISTER_TILES"]
     mesh_conf = config["MESH_INTEGRATION_CONFIG"]
-    warp_conf = config["WARP_CONFIG"]
     kwargs = {
         "sbem_experiment": default["sbem_experiment"],
         "block": default["block"],
@@ -35,7 +36,6 @@ def config_to_dict(config):
         "reconcile_flow_max_deviation": float(
             register_tiles["reconcile_flow_max_deviation"]
         ),
-        "n_workers": int(register_tiles["n_workers"]),
         "dt": float(mesh_conf["dt"]),
         "gamma": float(mesh_conf["gamma"]),
         "k0": float(mesh_conf["k0"]),
@@ -48,17 +48,94 @@ def config_to_dict(config):
         "start_cap": float(mesh_conf["start_cap"]),
         "final_cap": float(mesh_conf["final_cap"]),
         "remove_drift": mesh_conf["remove_drift"] == "True",
-        "margin": int(warp_conf["margin"]),
-        "use_clahe": warp_conf["use_clahe"] == "True",
-        "kernel_size": int(warp_conf["kernel_size"]),
-        "clip_limit": float(warp_conf["clip_limit"]),
-        "nbins": int(warp_conf["nbins"]),
     }
 
     return kwargs
 
 
-def main():
+with Flow("Tile-Stitching") as flow:
+    sbem_experiment = Parameter("sbem_experiment", default="SBEM")
+    block = Parameter("block", default="Block")
+    start_section = Parameter("start_section", default=0)
+    end_section = Parameter("end_section", default=1)
+    grid_index = Parameter("grid_index", default=1)
+
+    dt = Parameter("dt", default=0.001)
+    gamma = Parameter("gamma", default=0.0)
+    k0 = Parameter("k0", default=0.01)
+    k = Parameter("k", default=0.1)
+    stride = Parameter("stride", default=20)
+    num_iters = Parameter("num_iters", default=1000)
+    max_iters = Parameter("max_iters", default=20000)
+    stop_v_max = Parameter("stop_v_max", default=0.001)
+    dt_max = Parameter("dt_max", default=100.0)
+    prefer_orig_order = Parameter("prefer_orig_order", default=True)
+    start_cap = Parameter("start_cap", default=0.1)
+    final_cap = Parameter("final_cap", default=10.0)
+    remove_drift = Parameter("remove_drift", default=True)
+
+    overlaps_x = Parameter("overlaps_x", default=[200, 300])
+    overlaps_y = Parameter("overlaps_y", default=[200, 300])
+    min_overlap = Parameter("min_overlap", default=20)
+    patch_size = Parameter("patch_size", default=[120, 120])
+    batch_size = Parameter("batch_size", default=8000)
+    min_peak_ratio = Parameter("min_peak_ratio", default=1.4)
+    min_peak_sharpness = Parameter("min_peak_sharpness", default=1.4)
+    max_deviation = Parameter("max_deviation", default=5.0)
+    max_magnitude = Parameter("max_magnitude", default=0.0)
+    min_patch_size = Parameter("min_patch_size", default=10)
+    max_gradient = Parameter("max_gradient", default=-1.0)
+    reconcile_flow_max_deviation = Parameter(
+        "reconcile_flow_max_deviation", default=-1.0
+    )
+
+    n_workers = Parameter("n_workers", default=6)
+
+    sections = load_sections(
+        sbem_experiment=sbem_experiment,
+        block=block,
+        grid_index=grid_index,
+        start_section=start_section,
+        end_section=end_section,
+    )
+
+    integration_config = build_integration_config(
+        dt=dt,
+        gamma=gamma,
+        k0=k0,
+        k=k,
+        stride=stride,
+        num_iters=num_iters,
+        max_iters=max_iters,
+        stop_v_max=stop_v_max,
+        dt_max=dt_max,
+        prefer_orig_order=prefer_orig_order,
+        start_cap=start_cap,
+        final_cap=final_cap,
+        remove_drift=remove_drift,
+    )
+
+    reg_obj = run_sofima.map(
+        sections,
+        stride=unmapped(stride),
+        overlaps_x=unmapped(overlaps_x),
+        overlaps_y=unmapped(overlaps_y),
+        min_overlap=unmapped(min_overlap),
+        patch_size=unmapped(patch_size),
+        batch_size=unmapped(batch_size),
+        min_peak_ratio=unmapped(min_peak_ratio),
+        min_peak_sharpness=unmapped(min_peak_sharpness),
+        max_deviation=unmapped(max_deviation),
+        max_magnitude=unmapped(max_magnitude),
+        min_patch_size=unmapped(min_patch_size),
+        max_gradient=unmapped(max_gradient),
+        reconcile_flow_max_deviation=unmapped(reconcile_flow_max_deviation),
+        integration_config=unmapped(integration_config),
+        n_workers=unmapped(n_workers),
+    )
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config")
     args = parser.parse_args()
@@ -67,86 +144,8 @@ def main():
     config.read(args.config)
 
     kwargs = config_to_dict(config)
+    kwargs["n_workers"] = 6
 
-    exp = Experiment()
-    exp.load(kwargs["sbem_experiment"])
+    flow.executor = LocalDaskExecutor(num_workers=6)
 
-    block = exp.blocks[kwargs["block"]]
-    start_section = kwargs["start_section"]
-    end_section = kwargs["end_section"] + 1
-
-    sections = [
-        block.sections[(i, kwargs["grid_index"])]
-        for i in range(start_section, end_section)
-    ]
-
-    integration_config = mesh.IntegrationConfig(
-        dt=kwargs["dt"],
-        gamma=kwargs["gamma"],
-        k0=kwargs["k0"],
-        k=kwargs["k"],
-        stride=kwargs["stride"],
-        num_iters=kwargs["num_iters"],
-        max_iters=kwargs["max_iters"],
-        stop_v_max=kwargs["stop_v_max"],
-        dt_max=kwargs["dt_max"],
-        prefer_orig_order=kwargs["prefer_orig_order"],
-        start_cap=kwargs["start_cap"],
-        final_cap=kwargs["final_cap"],
-        remove_drift=kwargs["remove_drift"],
-    )
-
-    ray.init(num_gpus=1, num_cpus=22)
-    start = time()
-    reg_refs = []
-    warp_refs = []
-    for i, sec in enumerate(sections):
-        if len(reg_refs) > 6:
-            num_ready = i - 6
-            ray.wait(reg_refs, num_returns=num_ready)
-
-        reg_obj = run_sofima.remote(
-            sec,
-            stride=kwargs["stride"],
-            overlaps_x=kwargs["overlaps_x"],
-            overlaps_y=kwargs["overlaps_y"],
-            min_overlap=kwargs["min_overlap"],
-            patch_size=kwargs["patch_size"],
-            batch_size=kwargs["batch_size"],
-            min_peak_ratio=kwargs["min_peak_ratio"],
-            min_peak_sharpness=kwargs["min_peak_sharpness"],
-            max_deviation=kwargs["max_deviation"],
-            max_magnitude=kwargs["max_magnitude"],
-            min_patch_size=kwargs["min_patch_size"],
-            max_gradient=kwargs["max_gradient"],
-            reconcile_flow_max_deviation=kwargs["reconcile_flow_max_deviation"],
-            integration_config=integration_config,
-        )
-        reg_refs.append(reg_obj)
-        warp_obj = run_warp_and_save.remote(
-            reg_obj,
-            stride=kwargs["stride"],
-            margin=kwargs["margin"],
-            use_clahe=kwargs["use_clahe"],
-            clahe_kwargs={
-                "kernel_size": kwargs["kernel_size"],
-                "clip_limit": kwargs["clip_limit"],
-                "nbins": kwargs["nbins"],
-            },
-        )
-        warp_refs.append(warp_obj)
-
-    def print_runtime(sec, start_time, decimals=1):
-        print(f"Runtime: {time() - start_time:.{decimals}f} seconds, sections:")
-        print(*[s.save_dir for s in sec], sep="\n")
-
-    all_sections = []
-    while len(warp_refs) > 0:
-        finished, warp_refs = ray.wait(warp_refs, num_returns=1)
-        sec = ray.get(finished)
-        print_runtime(sec, start, 1)
-        all_sections.append(sec)
-
-
-if __name__ == "__main__":
-    main()
+    flow.run(parameters=kwargs)
