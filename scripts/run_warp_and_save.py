@@ -4,7 +4,7 @@ import configparser
 from prefect import Flow, Parameter, unmapped
 from prefect.executors import LocalDaskExecutor
 
-from sbem.tile_stitching.sofima_utils import load_sections, run_warp_and_save
+from sbem.tile_stitching.sofima_tasks import load_sections, run_warp_and_save
 
 
 def config_to_dict(config):
