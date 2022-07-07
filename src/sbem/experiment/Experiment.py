@@ -182,7 +182,59 @@ class Experiment:
                     sbem_root_dir=None,
                     logger=self.logger,
                 )
-                block.load(join(path, block_name))
+
+    def load_all_blocks(self):
+        for block_name in self.blocks.keys():
+            self.load_block(block_name)
+
+    def load_block(self, block_name):
+        assert block_name in self.blocks.keys(), "Block name not in experiment dict."
+        self.blocks[block_name].load(join(self.save_dir, block_name))
+
+    def compute_section_ranges(self):
+        section_ranges = dict()
+        for block_name, block in self.blocks.items():
+             secs = block.get_section_range()
+             section_ranges[block_name] = (secs[0], secs[1])
+        self.section_ranges = section_ranges
+
+    def divide_sections_to_blocks(self, start_section: int, end_section: int):
+        assert end_section >= start_section
+        self.compute_section_ranges()
+
+        sranges = list(self.section_ranges.items())
+        sranges = sorted(sranges, key=lambda x: x[1][0])
+
+        start_block_idx = next((i for i, x in enumerate(sranges)
+                          if x[1][0]<=start_sec), -1)
+        end_block_idx = next((i for i, x in enumerate(sranges)
+                        if x[1][0]<=end_section), -1)
+
+        if start_block_idx == -1:
+            msg = "Start section outside the ranges of blocks."
+            raise ValueError(msg)
+
+        if end_block_idx == -1:
+            msg = "End section outside the ranges of blocks."
+            raise ValueError(msg)
+
+        assert start_block_idx <= end_block_idx
+
+        divided_ranges = dict()
+        if start_block_idx == end_block_idx:
+            divided_ranges[sranges[start_block_idx][0]] = (start_section, end_section)
+        else:
+            divided_ranges[sranges[start_block_idx][0]] = (start_section,
+                                                sranges[start_block_idx][1][1])
+        for idx in range(start_idx, end_idx):
+            divided_ranges[sranges[idx][0]] = sranges[idx][1]
+
+        divided_ranges[sranges[end_block_idx][0]] = (sranges[end_block_idx][1][0],
+                                          end_section)
+        return divided_ranges
+
+    def load_sections(self, start_section, end_section, tile_grid_num):
+        pass
 
     def _save_exp_dict(self):
         """

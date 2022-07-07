@@ -81,6 +81,8 @@ class BlockRecord:
         if id_ in self.sections.keys():
             return self.sections[id_]
         else:
+            msg = f"Section not found: section{section_num}, grid{tile_grid_num}"
+            self.logger.warning(msg)
             return None
 
     def get_section_range(self):
@@ -154,4 +156,15 @@ class BlockRecord:
                     save_dir=self.save_dir,
                     logger=self.logger,
                 )
-                section.load(join(path, section.get_name()))
+
+    def load_sections(self, start_section, end_section, tile_grid_num):
+        section_list = self.get_sections(start_section, end_section,
+                                         tile_grid_num)
+        for section in section_list:
+            if section is not None:
+                section.load(join(self.save_dir, section.get_name()))
+
+    def get_sections(self, start_section, end_section, tile_grid_num):
+        srange = range(start_section, end_section)
+        section_list = [self.get_section(sn, tile_grid_num) for sn in srange]
+        return section_list
