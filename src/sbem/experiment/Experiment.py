@@ -49,6 +49,7 @@ class Experiment:
             self.zarr_root = None
 
         self.blocks = {}
+        self.section_ranges = None
 
     def add_block(self, block: BlockRecord):
         """
@@ -182,59 +183,64 @@ class Experiment:
                     sbem_root_dir=None,
                     logger=self.logger,
                 )
-
-    def load_all_blocks(self):
-        for block_name in self.blocks.keys():
-            self.load_block(block_name)
-
-    def load_block(self, block_name):
-        assert block_name in self.blocks.keys(), "Block name not in experiment dict."
-        self.blocks[block_name].load(join(self.save_dir, block_name))
+                block.load(join(path, block_name))
 
     def compute_section_ranges(self):
         section_ranges = dict()
         for block_name, block in self.blocks.items():
              secs = block.get_section_range()
-             section_ranges[block_name] = (secs[0], secs[1])
+             section_ranges[block_name] = (secs[0], secs[-1])
+        print(section_ranges)
         self.section_ranges = section_ranges
 
     def divide_sections_to_blocks(self, start_section: int, end_section: int):
-        assert end_section >= start_section
-        self.compute_section_ranges()
+        if not end_section >= start_section:
+            raise ValueError("End section should be larger equal to start section.")
+
+        if self.section_ranges is None:
+            self.compute_section_ranges()
 
         sranges = list(self.section_ranges.items())
         sranges = sorted(sranges, key=lambda x: x[1][0])
 
-        start_block_idx = next((i for i, x in enumerate(sranges)
-                          if x[1][0]<=start_sec), -1)
-        end_block_idx = next((i for i, x in enumerate(sranges)
-                        if x[1][0]<=end_section), -1)
-
-        if start_block_idx == -1:
+        after_start = [i for i, x in enumerate(sranges)
+                       if x[1][0]<=start_section]
+        if len(after_start) == 0:
             msg = "Start section outside the ranges of blocks."
             raise ValueError(msg)
+        else:
+            start_block_idx = after_start[-1]
 
+        end_block_idx = next((i for i, x in enumerate(sranges)
+                        if x[1][1]>=end_section), -1)
         if end_block_idx == -1:
             msg = "End section outside the ranges of blocks."
             raise ValueError(msg)
 
         assert start_block_idx <= end_block_idx
-
         divided_ranges = dict()
         if start_block_idx == end_block_idx:
-            divided_ranges[sranges[start_block_idx][0]] = (start_section, end_section)
+            divided_ranges[sranges[start_block_idx][0]] = \
+            (start_section, end_section)
         else:
-            divided_ranges[sranges[start_block_idx][0]] = (start_section,
-                                                sranges[start_block_idx][1][1])
-        for idx in range(start_idx, end_idx):
+            divided_ranges[sranges[start_block_idx][0]] = \
+              (start_section, sranges[start_block_idx][1][1])
+        for idx in range(start_block_idx, end_block_idx):
             divided_ranges[sranges[idx][0]] = sranges[idx][1]
 
-        divided_ranges[sranges[end_block_idx][0]] = (sranges[end_block_idx][1][0],
-                                          end_section)
+        divided_ranges[sranges[end_block_idx][0]] = \
+        (sranges[end_block_idx][1][0], end_section)
         return divided_ranges
 
-    def load_sections(self, start_section, end_section, tile_grid_num):
-        pass
+    def load_sections(self, start_section, end_section, grid_num):
+        divided_ranges = self.divide_sections_to_blocks(start_section, end_section)
+
+        section_list = []
+        for block_name, srange in divided_ranges.items():
+            sections = self.blocks[block_name].init_load_section_range(*srange, grid_num)
+            section_list.extend(sections)
+
+        return section_list
 
     def _save_exp_dict(self):
         """

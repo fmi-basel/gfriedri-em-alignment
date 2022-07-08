@@ -56,6 +56,7 @@ class BlockRecord:
         else:
             self.save_dir = None
 
+        self.section_keys = []
         self.sections = {}
 
         if self.experiment is not None:
@@ -81,7 +82,8 @@ class BlockRecord:
         if id_ in self.sections.keys():
             return self.sections[id_]
         else:
-            msg = f"Section not found: section{section_num}, grid{tile_grid_num}"
+            msg = f"""Section not found or not initiated:
+                   section{section_num}, grid{tile_grid_num}"""
             self.logger.warning(msg)
             return None
 
@@ -89,9 +91,7 @@ class BlockRecord:
         """
         :return: Sorted array containing all section numbers.
         """
-        return np.array(
-            sorted(section.section_num for section in self.sections.values())
-        )
+        return np.array(sorted(x[0] for x in self.section_keys))
 
     def has_missing_section(self):
         """
@@ -146,25 +146,35 @@ class BlockRecord:
             self.block_id = block_dict["block_id"]
             self.save_dir = block_dict["save_dir"]
             self.sbem_root_dir = block_dict["sbem_root_dir"]
-            for (section_num, tile_grid_num) in tqdm(
-                block_dict["sections"], desc="Loading Sections"
-            ):
-                section = SectionRecord(
-                    self,
-                    section_num,
-                    tile_grid_num,
-                    save_dir=self.save_dir,
-                    logger=self.logger,
-                )
+            self.section_keys = block_dict["sections"]
 
-    def load_sections(self, start_section, end_section, tile_grid_num):
-        section_list = self.get_sections(start_section, end_section,
-                                         tile_grid_num)
-        for section in section_list:
+    def _init_sections(self, section_keys):
+        for (section_num, tile_grid_num) in tqdm(
+            section_keys, desc="Initiating sections"
+        ):
+            section = SectionRecord(
+                self,
+                section_num,
+                tile_grid_num,
+                save_dir=self.save_dir,
+                logger=self.logger,
+            )
+
+    def _load_sections(self, section_keys):
+        section_list = self.get_sections(section_keys)
+        for section in tqdm(section_list,
+                            desc="Loading sections"):
             if section is not None:
                 section.load(join(self.save_dir, section.get_name()))
+        return section_list
 
-    def get_sections(self, start_section, end_section, tile_grid_num):
-        srange = range(start_section, end_section)
-        section_list = [self.get_section(sn, tile_grid_num) for sn in srange]
+    def get_sections(self, section_keys):
+        section_list = [self.get_section(*sk) for sk in section_keys]
+        return section_list
+
+    def init_load_section_range(self, start_section: int, end_section: int,
+                                grid_num: int):
+        section_keys = [(s, grid_num) for s in range(start_section, end_section)]
+        self._init_sections(section_keys)
+        section_list = self._load_sections(section_keys)
         return section_list
