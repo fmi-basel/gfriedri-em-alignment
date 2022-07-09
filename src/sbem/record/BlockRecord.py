@@ -82,8 +82,7 @@ class BlockRecord:
         if id_ in self.sections.keys():
             return self.sections[id_]
         else:
-            msg = f"""Section not found or not initiated:
-                   section{section_num}, grid{tile_grid_num}"""
+            msg = f"Section not found: section{section_num}, grid{tile_grid_num}"
             self.logger.warning(msg)
             return None
 
@@ -91,7 +90,11 @@ class BlockRecord:
         """
         :return: Sorted array containing all section numbers.
         """
-        return np.array(sorted(x[0] for x in self.section_keys))
+        if self.section_keys is None:
+            section_keys = self.sections.keys()
+        else:
+            section_keys = self.section_keys
+        return np.array(sorted(x[0] for x in section_keys))
 
     def has_missing_section(self):
         """
@@ -146,12 +149,20 @@ class BlockRecord:
             self.block_id = block_dict["block_id"]
             self.save_dir = block_dict["save_dir"]
             self.sbem_root_dir = block_dict["sbem_root_dir"]
-            self.section_keys = block_dict["sections"]
+            self.section_keys = list(map(tuple, block_dict["sections"]))
 
     def _init_sections(self, section_keys):
+        """
+        Initiate section objects (only used in loading block)
+
+        :param section_keys: list of section keys, each key is
+                             (section_num, tile_grid_num)
+        """
         for (section_num, tile_grid_num) in tqdm(
             section_keys, desc="Initiating sections"
         ):
+            if (section_num, tile_grid_num) not in self.section_keys:
+                continue
             section = SectionRecord(
                 self,
                 section_num,
@@ -161,6 +172,17 @@ class BlockRecord:
             )
 
     def _load_sections(self, section_keys):
+        """
+        Load sections
+
+        :param section_keys: list of section keys, each key is
+                             (section_num, tile_grid_num)
+        :return: list of sections.
+                 If the section is not initated,
+                 the section is None.
+                 If the section cannot be loaded,
+                 section.is_loaded is False.
+        """
         section_list = self.get_sections(section_keys)
         for section in tqdm(section_list,
                             desc="Loading sections"):
@@ -169,11 +191,33 @@ class BlockRecord:
         return section_list
 
     def get_sections(self, section_keys):
+        """
+        Get sections
+
+        :param section_keys: list of section keys, each key is
+                             (section_num, tile_grid_num)
+        :return: list of sections.
+                 If the section is not initated,
+                 the section is None.
+        """
         section_list = [self.get_section(*sk) for sk in section_keys]
         return section_list
 
     def init_load_section_range(self, start_section: int, end_section: int,
                                 grid_num: int):
+        """
+        Initiate and load a range of secions sections
+
+        :param start_section: the number of the start section.
+        :param end_section: the number of the end section.
+        :param grid_num: the number of the grid
+
+        :return: list of sections.
+                 If the section cannot be initiated,
+                 the section is None.
+                 If the section cannot be loaded,
+                 section.is_loaded is False.
+        """
         section_keys = [(s, grid_num) for s in range(start_section, end_section)]
         self._init_sections(section_keys)
         section_list = self._load_sections(section_keys)

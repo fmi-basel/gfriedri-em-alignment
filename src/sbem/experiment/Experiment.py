@@ -143,6 +143,7 @@ class Experiment:
 
         for section in tqdm(block.sections.values(), desc="Build " "tile-id-maps"):
             section.compute_tile_id_map()
+            section.is_loaded = True
 
     def save(self):
         """
@@ -185,20 +186,31 @@ class Experiment:
                 )
                 block.load(join(path, block_name))
 
-    def compute_section_ranges(self):
+    def _compute_section_ranges(self):
+        """
+        Compute start and end section numbers for each block
+        """
         section_ranges = dict()
         for block_name, block in self.blocks.items():
              secs = block.get_section_range()
              section_ranges[block_name] = (secs[0], secs[-1])
-        print(section_ranges)
         self.section_ranges = section_ranges
 
-    def divide_sections_to_blocks(self, start_section: int, end_section: int):
+    def _divide_sections_to_blocks(self, start_section: int, end_section: int):
+        """
+        Divide a range of sections into each block
+
+        :param start_section: the number of the start section.
+        :param end_section: the number of the end section.
+        :return: a list, in which each element is
+                 (block_name, [start_section_number_in _block,
+                 end_section_number_in_block])
+        """
         if not end_section >= start_section:
             raise ValueError("End section should be larger equal to start section.")
 
         if self.section_ranges is None:
-            self.compute_section_ranges()
+            self._compute_section_ranges()
 
         sranges = list(self.section_ranges.items())
         sranges = sorted(sranges, key=lambda x: x[1][0])
@@ -218,6 +230,7 @@ class Experiment:
             raise ValueError(msg)
 
         assert start_block_idx <= end_block_idx
+
         divided_ranges = dict()
         if start_block_idx == end_block_idx:
             divided_ranges[sranges[start_block_idx][0]] = \
@@ -225,15 +238,27 @@ class Experiment:
         else:
             divided_ranges[sranges[start_block_idx][0]] = \
               (start_section, sranges[start_block_idx][1][1])
-        for idx in range(start_block_idx, end_block_idx):
-            divided_ranges[sranges[idx][0]] = sranges[idx][1]
 
-        divided_ranges[sranges[end_block_idx][0]] = \
-        (sranges[end_block_idx][1][0], end_section)
+            for idx in range(start_block_idx+1, end_block_idx):
+                divided_ranges[sranges[idx][0]] = sranges[idx][1]
+
+            divided_ranges[sranges[end_block_idx][0]] = \
+            (sranges[end_block_idx][1][0], end_section)
         return divided_ranges
 
     def load_sections(self, start_section, end_section, grid_num):
-        divided_ranges = self.divide_sections_to_blocks(start_section, end_section)
+        """
+        Load a range of sections,
+        possibly from multiple blocks
+
+        :param start_section: the number of the start section.
+        :param end_section: the number of the end section.
+        :param grid_num: the number of the grid
+        :return: a list of `SectionRecord` objects.
+                 If the section cannot be loaded,
+                 section.is_loaded is False.
+        """
+        divided_ranges = self._divide_sections_to_blocks(start_section, end_section)
 
         section_list = []
         for block_name, srange in divided_ranges.items():

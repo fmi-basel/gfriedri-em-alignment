@@ -61,6 +61,8 @@ class SectionRecord:
 
         self.tile_id_map = None
 
+        self.is_loaded = False
+
         if self.block is not None:
             self.block.add_section(self)
 
@@ -164,6 +166,16 @@ class SectionRecord:
         )
         zarr_stitched[...] = stitched[...]
 
+    def check_stitched(self):
+        """
+        Check whether the stitched image exsits
+
+        :return: bool, True if the stitched image exists
+        """
+        stitched_path = join(self.save_dir, f"stitched_grid-{self.section_id[1]}")
+        is_stitched = exists(stitched_path)
+        return is_stitched
+
     def save(self):
         """
         Save section to `save_dir`.
@@ -236,3 +248,5 @@ class SectionRecord:
                 with open(tile_id_map_path) as f:
                     data = json.load(f)
                     self.tile_id_map = np.array(data)
+
+            self.is_loaded = True
