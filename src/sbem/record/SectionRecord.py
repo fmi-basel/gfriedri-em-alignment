@@ -166,13 +166,16 @@ class SectionRecord:
         )
         zarr_stitched[...] = stitched[...]
 
+    def get_stitched_path(self):
+        return os.path.join(self.save_dir, f"stitched_grid-{self.section_id[1]}")
+
     def check_stitched(self):
         """
         Check whether the stitched image exsits
 
         :return: bool, True if the stitched image exists
         """
-        stitched_path = join(self.save_dir, f"stitched_grid-{self.section_id[1]}")
+        stitched_path = self.get_stitched_path()
         is_stitched = exists(stitched_path)
         return is_stitched
 
