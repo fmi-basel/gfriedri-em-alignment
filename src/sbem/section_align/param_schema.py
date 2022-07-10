@@ -6,7 +6,6 @@ from dataclasses_json import dataclass_json
 class LoadSectionsConfig:
     """Class for load section parameters"""
     sbem_experiment: str
-    block: str
     grid_index: int
     start_section: int
     end_section:int

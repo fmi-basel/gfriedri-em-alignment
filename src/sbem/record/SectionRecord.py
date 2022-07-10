@@ -167,7 +167,7 @@ class SectionRecord:
         zarr_stitched[...] = stitched[...]
 
     def get_stitched_path(self):
-        return os.path.join(self.save_dir, f"stitched_grid-{self.section_id[1]}")
+        return join(self.save_dir, f"stitched_grid-{self.section_id[1]}")
 
     def check_stitched(self):
         """

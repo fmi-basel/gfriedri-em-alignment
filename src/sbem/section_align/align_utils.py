@@ -1,3 +1,13 @@
+import os
+import json
+import zarr
+
+
+from skimage.transform import downscale_local_mean
+from sofima import stitch_rigid
+from sbem.experiment import Experiment
+
+
 def load_n5(path):
     img = zarr.open(zarr.N5FSStore(path), mode="r")
     return img
@@ -31,7 +41,7 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path):
     save_offset(xyo, pr, offset_path)
 
 
-def load_sections(sbem_experiment, block, grid_index, start_section, end_section,
+def load_sections(sbem_experiment, grid_index, start_section, end_section,
                   logger=None):
     exp = Experiment(logger=logger)
     exp.load(sbem_experiment)
@@ -62,6 +72,7 @@ def remove_missing_sections(sections):
 
     return stitched, unloaded, unstitched
 
+
 def log_missing_sections(stitched, unloaded, unstitched, log_dir):
     log_section_ids(stitched, os.path.join(log_dir, "stitched_sections.json"))
     log_section_ids(unloaded, os.path.join(log_dir, "unloaded_sections.json"))
@@ -70,4 +81,4 @@ def log_missing_sections(stitched, unloaded, unstitched, log_dir):
 
 def get_section_pairs(sections):
     section_pairs = zip(sections[1:], sections[:-2])
-    return section_pairs
+    return list(section_pairs)
