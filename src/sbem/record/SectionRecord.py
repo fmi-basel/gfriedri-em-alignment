@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import zarr
+
 from os import mkdir
 from os.path import exists, join
 from typing import TYPE_CHECKING
@@ -165,6 +167,11 @@ class SectionRecord:
             overwrite=True,
         )
         zarr_stitched[...] = stitched[...]
+
+    def read_stitched(self):
+        zarr_stitched = zarr.open(zarr.N5FSStore(self.get_stitched_path()), mode="r")
+        return zarr_stitched
+
 
     def get_stitched_path(self):
         return join(self.save_dir, f"stitched_grid-{self.section_id[1]}")

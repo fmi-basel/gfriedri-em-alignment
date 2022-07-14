@@ -8,6 +8,12 @@ from sofima import stitch_rigid
 from sbem.experiment import Experiment
 
 
+def load_json(path):
+    with open(path) as f:
+        x = json.load(f)
+    return x
+
+
 def load_n5(path):
     img = zarr.open(zarr.N5FSStore(path), mode="r")
     return img
@@ -49,10 +55,10 @@ def load_sections(sbem_experiment, grid_index, start_section, end_section,
     return sections
 
 
-def log_section_ids(sections, path):
-    section_ids = [s.section_id for s in sections]
+def log_section_numbers(sections, path):
+    section_numbers = [s.section_id[0] for s in sections]
     with open(path, "w") as f:
-        json.dump(section_ids, f)
+        json.dump(section_numbers, f)
 
 
 def remove_missing_sections(sections):
@@ -74,11 +80,15 @@ def remove_missing_sections(sections):
 
 
 def log_missing_sections(stitched, unloaded, unstitched, log_dir):
-    log_section_ids(stitched, os.path.join(log_dir, "stitched_sections.json"))
-    log_section_ids(unloaded, os.path.join(log_dir, "unloaded_sections.json"))
-    log_section_ids(unstitched, os.path.join(log_dir, "unstitched_sections.json"))
+    log_section_numbers(stitched, os.path.join(log_dir, "stitched_sections.json"))
+    log_section_numbers(unloaded, os.path.join(log_dir, "unloaded_sections.json"))
+    log_section_numbers(unstitched, os.path.join(log_dir, "unstitched_sections.json"))
 
 
 def get_section_pairs(sections):
-    section_pairs = zip(sections[1:], sections[:-2])
+    section_pairs = zip(sections[:-1], sections[1:])
     return list(section_pairs)
+
+
+def get_pair_name(section_pair):
+    return f"{section_pair[0].get_name()}_{section_pair[1].get_name()}"
