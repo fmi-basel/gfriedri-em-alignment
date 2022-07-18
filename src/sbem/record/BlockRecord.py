@@ -222,3 +222,9 @@ class BlockRecord:
         self._init_sections(section_keys)
         section_list = self._load_sections(section_keys)
         return section_list
+
+    def init_load_section(self, section_num: int, grid_num: int):
+        section_keys = [(section_num, grid_num)]
+        self._init_sections(section_keys)
+        section =  self._load_sections(section_keys)[0]
+        return section

@@ -102,6 +102,15 @@ def load_sections(sbem_experiment, block, grid_index, start_section, end_section
         block.sections[(i, grid_index)] for i in range(start_section, end_section + 1)
     ]
 
+@task()
+def load_section_list(sbem_experiment, grid_index, section_num_list, block=None):
+    # block parameter is ignored by this task
+    # it is only a placeholder for the prefect flow to run
+    logger = prefect.context.get("logger")
+    exp = Experiment(logger=logger)
+    exp.load(sbem_experiment)
+    sections = exp.load_section_list(section_num_list, grid_index)
+    return sections
 
 @task()
 def build_integration_config(

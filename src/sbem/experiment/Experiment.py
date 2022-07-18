@@ -196,6 +196,12 @@ class Experiment:
              section_ranges[block_name] = (secs[0], secs[-1])
         self.section_ranges = section_ranges
 
+    def _sort_section_ranges(self):
+        sranges = list(self.section_ranges.items())
+        sranges = sorted(sranges, key=lambda x: x[1][0])
+        return sranges
+
+
     def _divide_sections_to_blocks(self, start_section: int, end_section: int):
         """
         Divide a range of sections into each block
@@ -212,8 +218,7 @@ class Experiment:
         if self.section_ranges is None:
             self._compute_section_ranges()
 
-        sranges = list(self.section_ranges.items())
-        sranges = sorted(sranges, key=lambda x: x[1][0])
+        sranges = self._sort_section_ranges()
 
         after_start = [i for i, x in enumerate(sranges)
                        if x[1][0]<=start_section]
@@ -264,6 +269,44 @@ class Experiment:
         for block_name, srange in divided_ranges.items():
             sections = self.blocks[block_name].init_load_section_range(*srange, grid_num)
             section_list.extend(sections)
+
+        return section_list
+
+    def get_block_for_section(self, section_num):
+        if self.section_ranges is None:
+            self._compute_section_ranges()
+
+        sranges = self._sort_section_ranges()
+
+        after_start = [i for i, x in enumerate(sranges)
+                       if x[1][0]<=section_num]
+        if len(after_start) == 0:
+            msg = "Start section outside the ranges of blocks."
+            raise ValueError(msg)
+        else:
+            start_block_idx = after_start[-1]
+
+        end_block_idx = next((i for i, x in enumerate(sranges)
+                        if x[1][1]>=section_num), -1)
+        if end_block_idx == -1:
+            msg = "End section outside the ranges of blocks."
+            raise ValueError(msg)
+
+        if start_block_idx == end_block_idx:
+            block_idx = start_block_idx
+        else:
+            raise ValueError("Found section in multiple blocks.")
+
+        block_name = sranges[block_idx][0]
+        return block_name
+
+    def load_section_list(self, section_num_list, grid_num):
+        block_list = [self.get_block_for_section(s) for s in section_num_list]
+        section_list = []
+
+        for block_name, sec in zip(block_list, section_num_list):
+            section = self.blocks[block_name].init_load_section(sec, grid_num)
+            section_list.append(section)
 
         return section_list
 

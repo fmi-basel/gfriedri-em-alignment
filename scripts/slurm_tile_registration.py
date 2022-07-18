@@ -14,8 +14,6 @@ def config_to_dict(config):
         "sbem_experiment": default["sbem_experiment"],
         "block": default["block"],
         "grid_index": int(default["grid_index"]),
-        "start_section": int(register_tiles["start_section"]),
-        "end_section": int(register_tiles["end_section"]),
         "batch_size": int(register_tiles["batch_size"]),
         "stride": int(register_tiles["stride"]),
         "overlaps_x": tuple(int(o) for o in register_tiles["overlaps_x"].split(",")),
@@ -48,6 +46,15 @@ def config_to_dict(config):
         "nbins": int(warp_conf["nbins"]),
     }
 
+    if "start_section" in register_tiles:
+        kwargs.update({"start_section": int(register_tiles["start_section"]),
+                      "end_section": int(register_tiles["end_section"])})
+    elif "section_num_list" in register_tiles:
+        section_list = list(int(x) for x in register_tiles["section_num_list"].split(","))
+        kwargs["section_num_list"] = section_list
+    else:
+        raise ValueError("Section range or section list not specified in config.")
+
     return kwargs
 
 
@@ -69,26 +76,33 @@ def main():
         with open(join(run_dir, "tile_registration.config"), "w") as f:
             config.write(f)
 
-    n_sections_per_job = 75
-    for i, section_start in enumerate(
-        range(kwargs["start_section"], kwargs["end_section"], n_sections_per_job)
-    ):
-        with open(join(run_dir, f"tile_registration_{i}.config"), "w") as f:
+
+    if "start_section" in kwargs:
+        n_sections_per_job = 75
+        for i, section_start in enumerate(
+            range(kwargs["start_section"], kwargs["end_section"], n_sections_per_job)
+            ):
+            section_end = min(section_start + n_sections_per_job, kwargs["end_section"])
             config["REGISTER_TILES"]["start_section"] = str(section_start)
-            config["REGISTER_TILES"]["end_section"] = str(
-                min(section_start + n_sections_per_job, kwargs["end_section"])
-            )
+            config["REGISTER_TILES"]["end_section"] = str(section_end)
+            submit_job(config, job_idx, run_dir)
+    else:
+        submit_job(config, job_idx=0, run_dir=run_dir)
+
+
+def submit_job(config, job_idx, run_dir):
+        with open(join(run_dir, f"tile_registration_{job_idx}.config"), "w") as f:
             config.write(f)
 
-        job_file = join(run_dir, f"register_tiles_sj-{i}.sh")
-        write_tile_registration_slurm_job_script(config, i, job_file, run_dir)
+        job_file = join(run_dir, f"register_tiles_sj-{job_idx}.sh")
+        write_tile_registration_slurm_job_script(config, job_idx, job_file, run_dir)
 
         cmd = f"sbatch {job_file}"
         p = subprocess.check_output(cmd.split())
         job_id = p.decode("utf-8").split("Submitted batch job")[1].strip()
 
-        job_file = join(run_dir, f"warp_and_save_sj-{i}.sh")
-        write_warp_and_save_slurm_job_script(config, i, job_file, job_id, run_dir)
+        job_file = join(run_dir, f"warp_and_save_sj-{job_idx}.sh")
+        write_warp_and_save_slurm_job_script(config, job_idx, job_file, job_id, run_dir)
 
         cmd = f"sbatch {job_file}"
         p = subprocess.check_output(cmd.split())
