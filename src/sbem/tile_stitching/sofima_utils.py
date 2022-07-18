@@ -1,4 +1,5 @@
 import functools as ft
+import logging
 from os.path import exists, join
 
 import jax
@@ -58,6 +59,11 @@ def register_tiles(
     reconcile_flow_max_deviation: float = -1,
     integration_config: mesh.IntegrationConfig = default_mesh_integration_config(),
 ):
+    if section.logger:
+        logger = section.logger
+    else:
+        logger = logging.getLogger(__name__)
+
     tile_space = section.tile_id_map.shape
     tile_map = section.get_tile_data_map()
     cx, cy = stitch_rigid.compute_coarse_offsets(
@@ -69,6 +75,15 @@ def register_tiles(
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
     cx = np.squeeze(cx, axis=1)
     cy = np.squeeze(cy, axis=1)
+
+
+    if np.isinf(cx).any() or np.isinf(cy).any():
+        msg = "register_tiles: Inf in coarse mesh. Coarse rigid registration "+\
+          f"failed. Section number {section.section_num}."
+        long_msg = f"{msg}\ncx: {np.array2string(cx)}\ncy: {np.array2string(cy)}"
+        logger.error(long_msg)
+        raise ValueError(msg)
+
     fine_x, offsets_x = stitch_elastic.compute_flow_map(
         tile_map,
         cx,
