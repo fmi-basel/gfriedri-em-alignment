@@ -1,5 +1,5 @@
 import argparse
-import configparser
+import json
 
 import prefect
 from prefect import Flow, Parameter, unmapped
@@ -33,13 +33,12 @@ if __name__ == "__main__":
     parser.add_argument("--config")
     args = parser.parse_args()
 
-    config = configparser.ConfigParser()
-    config.read(args.config)
+    with open(args.config) as f:
+        config = json.load(f)
 
-    load_sections_config = LoadSectionsConfig.from_dict(
-        dict(config["LOAD_SECTIONS"]))
-    align_config = AlignSectionsConfig.from_dict(dict(config["ALIGN_SECTIONS"]))
-    offset_dir = config["OUTPUT"]["offset_dir"]
+    load_sections_config = LoadSectionsConfig.from_dict(config["load_sections"])
+    align_config = AlignSectionsConfig.from_dict(config["align_sections"])
+    offset_dir = config["output"]["offset_dir"]
 
     num_workers=6
     flow.executor = LocalDaskExecutor(num_workers=num_workers)

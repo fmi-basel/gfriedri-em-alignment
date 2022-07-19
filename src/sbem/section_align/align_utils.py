@@ -1,7 +1,7 @@
 import os
 import json
 import zarr
-
+import numpy as np
 
 from skimage.transform import downscale_local_mean
 from sofima import stitch_rigid
@@ -23,6 +23,14 @@ def downscale_image(img, factor):
     return downscale_local_mean(img, factor)
 
 
+def crop_image_center(img, dx, dy):
+    img_shape = img.shape
+    center = img_shape // 2
+    cropped = img[center[0]-dx:center[0]+dx,
+            center[1]-dy:center[1]+dy]
+    return cropped
+
+
 def estimate_offset(pre, post, align_config):
     xyo, pr = stitch_rigid._estimate_offset(pre, post,
                                             align_config.range_limit,
@@ -40,9 +48,15 @@ def save_offset(xyo, pr, save_path):
 def estimate_offset_and_save(pre_path, post_path, align_config, offset_path):
     pre = load_n5(pre_path)
     post = load_n5(post_path)
-    dsf = tuple([align_config.downscale_factor] * 2)
-    pre_scaled = downscale_image(pre, dsf)
-    post_scaled = downscale_image(post, dsf)
+
+    pre_cropped = crop_image_center(pre, *align_config.crop_size)
+    post_cropped = crop_image_center(post, *align_config.crop_size)
+
+    # dsf = tuple([align_config.downscale_factor] * 2)
+    dsf = align_config.downscale_factor
+    pre_scaled = downscale_image(pre_cropped, dsf)
+    post_scaled = downscale_image(post_cropped, dsf)
+
     xyo, pr = estimate_offset(pre_scaled, post_scaled, align_config)
     save_offset(xyo, pr, offset_path)
 
@@ -92,3 +106,33 @@ def get_section_pairs(sections):
 
 def get_pair_name(section_pair):
     return f"{section_pair[0].get_name()}_{section_pair[1].get_name()}"
+
+
+def load_offsets(offset_dir, sbem_experiment, grid_index, start_section, end_section, logger=None):
+    sections = load_sections(sbem_experiment, grid_index, start_section, end_section, logger=logger)
+    section_pairs = get_section_pairs(sections)
+
+    xyo_list = []
+    for pair in section_pairs:
+        pair_name = get_pair_name(pair)
+        offset_path = os.path.join(offset_dir, f"{pair_name}.json")
+        try:
+            offset = load_json(offset_path)
+        except FileNotFoundError as e:
+            print("No offset file found")
+            raise e
+
+        if offset == "error":
+            msg = f"Alignment for {pair_name} had an error"
+            raise ValueError(msg)
+
+        xyo = offset["xyo"]
+        xyo_list.append(xyo)
+
+    xy_offsets = np.array(xyo_list)
+    return xy_offsets, sections
+
+
+def offsets_to_coords(xy_offsets):
+    xy_coords = np.cumsum(xy_offsets, axis=0)
+    return xy_coords
