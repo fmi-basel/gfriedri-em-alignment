@@ -12,6 +12,7 @@ from sbem.tile_stitching.sofima_tasks import (
 
 def config_to_dict(config):
     default = config["DEFAULT"]
+    register_tiles = config["REGISTER_TILES"]
     warp_conf = config["WARP_CONFIG"]
     kwargs = {
         "sbem_experiment": default["sbem_experiment"],
