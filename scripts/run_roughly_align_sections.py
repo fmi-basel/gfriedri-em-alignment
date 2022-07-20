@@ -1,3 +1,4 @@
+import os
 import argparse
 import json
 
@@ -39,6 +40,9 @@ if __name__ == "__main__":
     load_sections_config = LoadSectionsConfig.from_dict(config["load_sections"])
     align_config = AlignSectionsConfig.from_dict(config["align_sections"])
     offset_dir = config["output"]["offset_dir"]
+
+    if not os.path.exists(offset_dir):
+        os.mkdir(offset_dir)
 
     num_workers=6
     flow.executor = LocalDaskExecutor(num_workers=num_workers)

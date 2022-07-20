@@ -70,7 +70,8 @@ class BlockRecord:
         """
         self.sections[section.section_id] = section
 
-    def get_section(self, section_num: int, tile_grid_num: int = 0):
+    def get_section(self, section_num: int, tile_grid_num: int = 0,
+                    not_found_warning: bool=True):
         """
         Get a section registered with this block.
 
@@ -82,8 +83,9 @@ class BlockRecord:
         if id_ in self.sections.keys():
             return self.sections[id_]
         else:
-            msg = f"Section not found: section{section_num}, grid{tile_grid_num}"
-            self.logger.warning(msg)
+            if not_found_warning:
+                msg = f"Section not found: section{section_num}, grid{tile_grid_num}"
+                self.logger.warning(msg)
             return None
 
     def get_section_range(self):

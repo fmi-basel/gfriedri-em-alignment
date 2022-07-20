@@ -25,7 +25,7 @@ def downscale_image(img, factor):
 
 def crop_image_center(img, dx, dy):
     img_shape = img.shape
-    center = img_shape // 2
+    center = np.array(img_shape) // 2
     cropped = img[center[0]-dx:center[0]+dx,
             center[1]-dy:center[1]+dy]
     return cropped

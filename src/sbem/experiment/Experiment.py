@@ -1,4 +1,5 @@
 import json
+import logging
 from glob import glob
 from os import mkdir
 from os.path import exists, join
@@ -35,7 +36,10 @@ class Experiment:
         processed data should be saved. Preferably this is different from
         `sbem_run_dir`.
         """
-        self.logger = logger
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger(__name__)
         self.name = name
         if self.name is None:
             self.name = "Experiment"
@@ -103,7 +107,8 @@ class Experiment:
         )
 
         for tile_spec in tqdm(tile_specs, desc="Build Block Record"):
-            section = block.get_section(tile_spec["z"], tile_grid_num)
+            section = block.get_section(tile_spec["z"], tile_grid_num,
+                                        not_found_warning=False)
             if section is None:
                 section = SectionRecord(
                     block=block,
