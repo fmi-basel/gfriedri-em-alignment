@@ -1,9 +1,13 @@
 import os
 import asyncio
 import logging
+import json
+from tqdm import tqdm
+import numpy as np
 import tensorstore as ts
 
-from sbem.recorde import SectionRecord
+from typing import List
+from sbem.record import SectionRecord
 
 async def read_n5(path: str):
     """
@@ -38,7 +42,7 @@ async def read_stitched(section: SectionRecord):
     return stitched
 
 
-async def read_stitched_sections(sections: List(SectionRecord)):
+async def read_stitched_sections(sections: List["SectionRecord"]):
     stitched_sections = []
 
     for section in sections:
@@ -109,25 +113,35 @@ async def create_volume(path: str,
 async def estimate_volume_size(stitched_sections, xy_coords):
     n_sections = len(stitched_sections)
     max_xy = xy_coords.max(axis=0)
-    shape_list = [s.shape for s in stitched_sections]
-    width = max([shape_list[0]]) + max_xy[0]
-    height = max([shape_list[1]]) + max_xy[1]
-    volume_size = [width, height, n_sections]
+    shape_list = np.array([s.shape for s in stitched_sections])
+    shape_max = shape_list.max(axis=0)
+    width = shape_max[0] + max_xy[0]
+    height = shape_max[1] + max_xy[1]
+    volume_size = list(map(int, [width, height, n_sections]))
     return volume_size
 
 
-async def render_volume(volume_path, sections, xy_coords,
-                        chunk_size: list=[64, 64, 64]):
+async def render_volume(volume_path: str,
+                        sections: List["SectionRecord"],
+                        xy_coords: np.ndarray,
+                        resolution: List[int],
+                        chunk_size: List[int]=[64, 64, 64]):
     """
     Render a range of sections into a 3d wolume
-    volume_path: the path for writing the volume.
-    sections: a list of SectionRecord objects
-    xy_coords: not used at the moment
 
-    #TODO make sure that xy_coords are non-negative
+    :param volume_path: the path for writing the volume.
+    :param sections: a list of SectionRecord objects
+    :param xy_coords: N*2 array, N equals number of sections.
+                      Each row is XY offset of each section, with respect
+                      to the first secion.
+    :param resolution: resolution in nanometer in X, Y, Z.
+    :param chunk_size: Chunk size for saving chunked volume. Each element
+                       corresponds to dimension X, Y, Z.
+
+    :return volume: `tensorstore.TensorStore` referring to the created volume
     """
-    logger = logging.getLogger(__name__)
-
+    if np.any(xy_coords < 0):
+        raise ValueError("The XY offset (xy_coords) should be non-negative.")
     stitched_sections = await read_stitched_sections(sections)
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
     volume = await create_volume(volume_path, volume_size, chunk_size,
