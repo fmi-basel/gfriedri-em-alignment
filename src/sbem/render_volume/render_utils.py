@@ -109,6 +109,15 @@ async def create_volume(path: str,
     volume = await volume_future
     return volume
 
+async def open_volume(path, scale_index):
+    {
+  "driver": "neuroglancer_precomputed",
+  "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
+  "path": "path/to/volume",
+  "scale_index": 1
+}
+
+
 
 async def estimate_volume_size(stitched_sections, xy_coords):
     n_sections = len(stitched_sections)

@@ -52,12 +52,13 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path):
     pre_cropped = crop_image_center(pre, *align_config.crop_size)
     post_cropped = crop_image_center(post, *align_config.crop_size)
 
-    # dsf = tuple([align_config.downscale_factor] * 2)
     dsf = align_config.downscale_factor
     pre_scaled = downscale_image(pre_cropped, dsf)
     post_scaled = downscale_image(post_cropped, dsf)
 
     xyo, pr = estimate_offset(pre_scaled, post_scaled, align_config)
+    xyo = np.multiply(xyo, align_config.downscale_factor)
+    # TODO check XY order
     save_offset(xyo, pr, offset_path)
 
 
