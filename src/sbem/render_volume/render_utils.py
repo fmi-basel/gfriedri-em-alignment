@@ -109,14 +109,32 @@ async def create_volume(path: str,
     volume = await volume_future
     return volume
 
-async def open_volume(path, scale_index):
-    {
-  "driver": "neuroglancer_precomputed",
-  "kvstore": {"driver": "gcs", "bucket": "my-bucket"},
-  "path": "path/to/volume",
-  "scale_index": 1
-}
 
+async def open_volume(path, scale_index):
+    volume_spec = {
+        "driver": "neuroglancer_precomputed",
+        "kvstore": {"driver": "file",
+                    "path": path
+                    },
+        "scale_index": scale_index
+        }
+
+    volume = await ts.open(volume_spec)
+    return volume
+
+
+def get_scale_key(resolution):
+    # This assumes resolution is integer
+    scale_key = "_".join(map(lambda x: str(int(x)), resolution))
+    return scale_key
+
+
+def get_resolution(volume):
+    # this assumes that each dimension unit is of the form [number, string]
+    # and resolution is integer
+    dimension_units = volume.dimension_units
+    resolution = [int(du.multiplier) for du in dimension_units[:-1]]
+    return resolution
 
 
 async def estimate_volume_size(stitched_sections, xy_coords):

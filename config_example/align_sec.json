@@ -1,0 +1,17 @@
+{
+    "load_sections":{
+        "sbem_experiment": "/tungstenfs/scratch/gfriedri/hubo/em_alignment/results/sbem_experiments/20220524_Bo_juv20210731",
+        "grid_index": 1,
+        "start_section": 2500,
+        "end_section": 7000
+    },
+    "align_sections":{
+        "crop_size": [400, 400],
+        "downscale_factor": [1, 1],
+        "range_limit": 10,
+        "filter_size": 10
+    },
+    "output": {
+        "offset_dir": "/tungstenfs/scratch/gfriedri/hubo/em_alignment/results/sbem_experiments/20220524_Bo_juv20210731/zalign/ob_substack"
+    }
+}

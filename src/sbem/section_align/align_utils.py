@@ -138,5 +138,6 @@ def offsets_to_coords(xy_offsets, non_neg=True):
     xy_coords = np.cumsum(xy_offsets, axis=0)
     if non_neg:
         xy_coords = xy_coords - xy_coords.min(axis=0)
+    xy_coords = np.insert(xy_coords, 0, [0,0], axis=0)
     xy_coords = xy_coords.astype(int)
     return xy_coords
