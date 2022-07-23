@@ -22,6 +22,10 @@ async def read_n5(path: str):
         'kvstore': {
             'driver': 'file',
             'path': path,
+            },
+        "context": {
+            "cache_pool": {"total_bytes_limit": 10*1024*1024},
+            "data_copy_concurrency": {"limit": 8}
             }
         },read=True)
     dataset = await dataset_future
@@ -96,6 +100,9 @@ async def create_volume(path: str,
             "encoding": "raw",
             "chunk_size": chunk_size,
             "resolution": resolution,
+            },
+        "context": {
+            "cache_pool": {"total_bytes_limit": 70*1024*1024*1024}
             },
         "create": True,
         "delete_existing": True
