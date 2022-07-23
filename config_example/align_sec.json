@@ -3,7 +3,8 @@
         "sbem_experiment": "/tungstenfs/scratch/gfriedri/hubo/em_alignment/results/sbem_experiments/20220524_Bo_juv20210731",
         "grid_index": 1,
         "start_section": 2500,
-        "end_section": 7000
+        "end_section": 7000,
+        "exclude_sections": [2793, 4872, 4872]
     },
     "align_sections":{
         "crop_size": [400, 400],

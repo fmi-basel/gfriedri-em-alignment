@@ -63,10 +63,14 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path):
 
 
 def load_sections(sbem_experiment, grid_index, start_section, end_section,
+                  exclude_sections=None,
                   logger=None):
     exp = Experiment(logger=logger)
     exp.load(sbem_experiment)
     sections = exp.load_sections(start_section, end_section, grid_index)
+    if exclude_sections:
+        sections = [s for s in sections
+                    if s.section_id[0] not in exclude_sections]
     return sections
 
 
