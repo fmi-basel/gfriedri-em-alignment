@@ -26,9 +26,9 @@ def downscale_image(img, factor):
 def crop_image_center(img, dx, dy):
     img_shape = img.shape
     center = np.array(img_shape) // 2
-    cropped = img[center[0]-dx:center[0]+dx,
-            center[1]-dy:center[1]+dy]
-    return cropped
+    cropped = img[center[0]-dy:center[0]+dy,
+            center[1]-dx:center[1]+dx]
+    return cropped, center
 
 
 def estimate_offset(pre, post, align_config):
@@ -49,16 +49,19 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path):
     pre = load_n5(pre_path)
     post = load_n5(post_path)
 
-    pre_cropped = crop_image_center(pre, *align_config.crop_size)
-    post_cropped = crop_image_center(post, *align_config.crop_size)
+    pre_cropped, pre_ctr = crop_image_center(pre, *align_config.crop_size)
+    post_cropped, post_ctr = crop_image_center(post, *align_config.crop_size)
 
     dsf = align_config.downscale_factor
     pre_scaled = downscale_image(pre_cropped, dsf)
     post_scaled = downscale_image(post_cropped, dsf)
 
     xyo, pr = estimate_offset(pre_scaled, post_scaled, align_config)
+    # Offset w.r.t top-let corner of each image
+    ctr_diff = pre_ctr - post_ctr
+    xyo = xyo + np.flip(ctr_diff)
+    # TODO increase crop_size in case offset equals limit of cropped region
     xyo = np.multiply(xyo, align_config.downscale_factor)
-    # TODO check XY order
     save_offset(xyo, pr, offset_path)
 
 
@@ -140,8 +143,8 @@ def load_offsets(offset_dir, sbem_experiment, grid_index, start_section, end_sec
 
 def offsets_to_coords(xy_offsets, non_neg=True):
     xy_coords = np.cumsum(xy_offsets, axis=0)
+    xy_coords = np.insert(xy_coords, 0, [0,0], axis=0)
     if non_neg:
         xy_coords = xy_coords - xy_coords.min(axis=0)
-    xy_coords = np.insert(xy_coords, 0, [0,0], axis=0)
     xy_coords = xy_coords.astype(int)
     return xy_coords

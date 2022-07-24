@@ -9,6 +9,8 @@ import tensorstore as ts
 from typing import List
 from sbem.record import SectionRecord
 
+import tracemalloc
+
 async def read_n5(path: str):
     """
     Read N5 dataset
@@ -102,7 +104,7 @@ async def create_volume(path: str,
             "resolution": resolution,
             },
         "context": {
-            "cache_pool": {"total_bytes_limit": 70*1024*1024*1024}
+            "cache_pool": {"total_bytes_limit": 20*1024*1024*1024}
             },
         "create": True,
         "delete_existing": True
@@ -176,10 +178,16 @@ async def render_volume(volume_path: str,
     """
     if np.any(xy_coords < 0):
         raise ValueError("The XY offset (xy_coords) should be non-negative.")
+    tracemalloc.start()
+
+
+
     stitched_sections = await read_stitched_sections(sections)
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
     volume = await create_volume(volume_path, volume_size, chunk_size,
                                  resolution, sharding=True)
+
+    #TODO need to write a "shard aligned" code for efficient writing
 
     for k, section in tqdm(enumerate(sections), "Writing sections"):
         stitched = stitched_sections[k]
