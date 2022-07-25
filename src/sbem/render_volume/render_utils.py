@@ -119,14 +119,17 @@ async def create_volume(path: str,
     return volume
 
 
-async def open_volume(path, scale_index):
+async def open_volume(path, scale_index=0, scale_key=None):
     volume_spec = {
         "driver": "neuroglancer_precomputed",
         "kvstore": {"driver": "file",
                     "path": path
                     },
-        "scale_index": scale_index
         }
+    if scale_key:
+        volume_spec["scale_metadata"] = dict({"key": scale_key})
+    else:
+        volume_spec["scale_index"] = scale_index
 
     volume = await ts.open(volume_spec)
     return volume
@@ -195,5 +198,6 @@ async def render_volume(volume_path: str,
         await volume[xyo[0]:stitched.shape[0]+xyo[0],
                      xyo[1]:stitched.shape[1]+xyo[1],
                      k, 0].write(stitched)
+        stitched_sections[k] = None
 
     return volume

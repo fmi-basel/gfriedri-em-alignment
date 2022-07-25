@@ -83,6 +83,7 @@ async def write_scaled_volume(base_path,
 async def make_multiscale(volume_path,
                           downsample_factors_list,
                           chunk_size_list,
+                          base_scale_key=None,
                           downsample_method='stride'):
     if len(downsample_factors_list) != len(chunk_size_list):
         raise ValueError("downsample_factors_list and chunk_size_list"+\
@@ -90,12 +91,18 @@ async def make_multiscale(volume_path,
 
     n_scales = len(downsample_factors_list)
     tasks = []
-    volume = await open_volume(volume_path, scale_index=0)
+    if base_scale_key is None:
+        volume = await open_volume(volume_path, scale_index=0)
+    else:
+        volume = await open_volume(volume_path, scale_key=base_scale_key)
 
     base_resolution = get_resolution(volume)
     volume_scale_key = get_scale_key(base_resolution)
-    resolutions = [np.multiply(base_resolution, df[:-1]).astype(int)
-                   for df in downsample_factors_list]
+    resolutions = []
+    for df in downsample_factors_list:
+        base_resolution = np.multiply(base_resolution, df[:-1]).astype(int)
+        resolutions.append(base_resolution)
+
     scale_keys = [get_scale_key(r) for r in resolutions]
     scale_keys.insert(0, volume_scale_key)
 
@@ -103,6 +110,7 @@ async def make_multiscale(volume_path,
         chunk_size = chunk_size_list[k]
         base_scale_key = scale_keys[k]
         scale_key = scale_keys[k+1]
+        print(scale_key)
         task = asyncio.create_task(
             write_scaled_volume(volume_path,
                                 base_scale_key,
