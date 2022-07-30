@@ -27,7 +27,8 @@ async def read_n5(path: str):
             },
         "context": {
             "cache_pool": {"total_bytes_limit": 10*1024*1024},
-            "data_copy_concurrency": {"limit": 8}
+            "data_copy_concurrency": {"limit": 6},
+            'file_io_concurrency': {'limit': 6}
             }
         },read=True)
     dataset = await dataset_future
@@ -58,7 +59,7 @@ async def read_stitched_sections(sections: List["SectionRecord"]):
     return stitched_sections
 
 
-def get_sharding_spec():
+def get_sharding_spec(shard_bits=15):
     sharding_spec =  {
         "@type": "neuroglancer_uint64_sharded_v1",
         "data_encoding": "gzip",
@@ -66,7 +67,7 @@ def get_sharding_spec():
         "minishard_bits": 6,
         "minishard_index_encoding": "gzip",
         "preshift_bits": 9,
-        "shard_bits": 15
+        "shard_bits": shard_bits
         }
     return sharding_spec
 
@@ -104,7 +105,8 @@ async def create_volume(path: str,
             "resolution": resolution,
             },
         "context": {
-            "cache_pool": {"total_bytes_limit": 20*1024*1024*1024}
+            "cache_pool": {"total_bytes_limit": 20*1024*1024*1024},
+            "data_copy_concurrency": {"limit": 6}
             },
         "create": True,
         "delete_existing": True
@@ -187,17 +189,33 @@ async def render_volume(volume_path: str,
 
     stitched_sections = await read_stitched_sections(sections)
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
+    sharding_spec = get_sharding_spec(shard_bits=4)
     volume = await create_volume(volume_path, volume_size, chunk_size,
-                                 resolution, sharding=True)
+                                 resolution,
+                                 sharding=True, sharding_spec=sharding_spec)
+    print(f"volume_size: {volume_size}")
 
-    #TODO need to write a "shard aligned" code for efficient writing
+    shard_size = 64*5
+    nshard_x = np.ceil(volume_size[0] / shard_size).astype(int)
+    nshard_y = np.ceil(volume_size[1] / shard_size).astype(int)
+    print(f"nshard {nshard_x}, {nshard_y}")
+    nshard_x = 60
+    nshard_y = 60
+    print(f"nshard {nshard_x}, {nshard_y}")
 
-    for k, section in tqdm(enumerate(sections), "Writing sections"):
-        stitched = stitched_sections[k]
-        xyo = xy_coords[k]
-        await volume[xyo[0]:stitched.shape[0]+xyo[0],
-                     xyo[1]:stitched.shape[1]+xyo[1],
-                     k, 0].write(stitched)
-        stitched_sections[k] = None
+    for i in range(nshard_x):
+        xs = slice(i*shard_size,min((i+1)*shard_size, volume_size[0]))
+        for j in range(nshard_y):
+            ys = slice(j*shard_size,min((j+1)*shard_size, volume_size[1]))
+            print(i,j)
+            txn = ts.Transaction()
+            for k, section in enumerate(sections):
+                #TODO xyo
+                xyo = xy_coords[k]
+                stitched = stitched_sections[k][xs, ys]
+                await volume[xs, ys, k, 0].with_transaction(txn).write(stitched)
+            print("Start writing")
+            await txn.commit_async()
 
     return volume
+# sum_i ceil(log_2(shape[i] / chunk_shape[i]))
