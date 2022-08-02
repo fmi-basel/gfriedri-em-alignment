@@ -26,9 +26,9 @@ async def read_n5(path: str):
             'path': path,
             },
         "context": {
-            "cache_pool": {"total_bytes_limit": 10*1024*1024},
-            "data_copy_concurrency": {"limit": 6},
-            'file_io_concurrency': {'limit': 6}
+            "cache_pool": {"total_bytes_limit": 1024*1024*1024},
+            "data_copy_concurrency": {"limit": 8},
+            'file_io_concurrency': {'limit': 8}
             }
         },read=True)
     dataset = await dataset_future
@@ -59,14 +59,14 @@ async def read_stitched_sections(sections: List["SectionRecord"]):
     return stitched_sections
 
 
-def get_sharding_spec(shard_bits=15):
+def get_sharding_spec(preshift_bits=9, minishard_bits=6, shard_bits=15):
     sharding_spec =  {
         "@type": "neuroglancer_uint64_sharded_v1",
         "data_encoding": "gzip",
         "hash": "identity",
-        "minishard_bits": 6,
+        "minishard_bits": minishard_bits,
         "minishard_index_encoding": "gzip",
-        "preshift_bits": 9,
+        "preshift_bits": preshift_bits,
         "shard_bits": shard_bits
         }
     return sharding_spec
@@ -105,8 +105,9 @@ async def create_volume(path: str,
             "resolution": resolution,
             },
         "context": {
-            "cache_pool": {"total_bytes_limit": 20*1024*1024*1024},
-            "data_copy_concurrency": {"limit": 6}
+            "cache_pool": {"total_bytes_limit": 40*1024*1024*1024},
+            "data_copy_concurrency": {"limit": 20},
+            'file_io_concurrency': {'limit': 20}
             },
         "create": True,
         "delete_existing": True
@@ -162,11 +163,28 @@ async def estimate_volume_size(stitched_sections, xy_coords):
     return volume_size
 
 
+def pick_shard_bits(volume_size, chunk_size,
+                    preshift_bits, minishard_bits):
+    grid_shape_in_chunks = np.ceil(np.divide(volume_size, chunk_size))
+    bits = np.ceil(np.log2(np.maximum(0, grid_shape_in_chunks - 1)))
+    total_z_index_bits = np.sum(bits)
+    shard_bits = total_z_index_bits - (preshift_bits + minishard_bits)
+    shard_bits = int(shard_bits)
+    if shard_bits <= 0:
+        msg = f"non_shard_bits {preshift_bits}+{minishard_bits}"+\
+              f"should be less than total_z_index_bits {total_z_index_bits}"
+        raise ValueError(msg)
+    return shard_bits
+
+
+
 async def render_volume(volume_path: str,
                         sections: List["SectionRecord"],
                         xy_coords: np.ndarray,
                         resolution: List[int],
-                        chunk_size: List[int]=[64, 64, 64]):
+                        chunk_size: List[int]=[64, 64, 64],
+                        preshift_bits=9,
+                        minishard_bits=6):
     """
     Render a range of sections into a 3d wolume
 
@@ -186,36 +204,82 @@ async def render_volume(volume_path: str,
     tracemalloc.start()
 
 
-
     stitched_sections = await read_stitched_sections(sections)
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
-    sharding_spec = get_sharding_spec(shard_bits=4)
+
+
+    shard_bits = pick_shard_bits(volume_size, chunk_size,
+                                 preshift_bits, minishard_bits)
+
+    sharding_spec = get_sharding_spec(preshift_bits=preshift_bits,
+                                      minishard_bits=minishard_bits,
+                                      shard_bits=shard_bits)
+
     volume = await create_volume(volume_path, volume_size, chunk_size,
                                  resolution,
                                  sharding=True, sharding_spec=sharding_spec)
     print(f"volume_size: {volume_size}")
 
-    shard_size = 64*5
-    nshard_x = np.ceil(volume_size[0] / shard_size).astype(int)
-    nshard_y = np.ceil(volume_size[1] / shard_size).astype(int)
-    print(f"nshard {nshard_x}, {nshard_y}")
-    nshard_x = 60
-    nshard_y = 60
-    print(f"nshard {nshard_x}, {nshard_y}")
+    # This estimation of shard_size requires x,y,z
+    # non-zero bits all more than (preshift_bits+minishard_bits)/3
+    shard_size = np.multiply((preshift_bits+minishard_bits)/3,
+                             chunk_size).astype(int)
 
-    for i in range(nshard_x):
-        xs = slice(i*shard_size,min((i+1)*shard_size, volume_size[0]))
-        for j in range(nshard_y):
-            ys = slice(j*shard_size,min((j+1)*shard_size, volume_size[1]))
-            print(i,j)
-            txn = ts.Transaction()
-            for k, section in enumerate(sections):
-                #TODO xyo
-                xyo = xy_coords[k]
-                stitched = stitched_sections[k][xs, ys]
-                await volume[xs, ys, k, 0].with_transaction(txn).write(stitched)
+    num_shards = np.ceil(np.divide(volume_size, shard_size)).astype(int)
+
+    # The order of dimensions is XYZ
+    for i in range(num_shards[0]):
+        for j in range(num_shards[1]):
+            for k in range(num_shards[2]):
+                shard_index_xyz = (i, j, k)
+                print(f"shard_index {shard_index_xyz}")
+                box = _get_shard_box(shard_index_xyz, shard_size,
+                                    volume_size)
+                txn = ts.Transaction()
+                for z in range(*box[2]):
+                    stitched = stitched_sections[z]
+                    xyo = xy_coords[z]
+                    box_xy = _get_shifted_box(box[:2], xyo)
+                    box_xy = _limit_box_by_total_size(box_xy, stitched.shape)
+                    slices_xy = _box_to_slices(box_xy)
+                    target_box_xy = _limit_box_by_another_box_size(box[:2],
+                                                                   box_xy)
+                    target_slices = _box_to_slices(target_box_xy)
+
+                    source = stitched[slices_xy[0], slices_xy[1]]
+                    await volume[target_slices[0], target_slices[1],
+                                 z, 0].with_transaction(txn).write(source)
             print("Start writing")
             await txn.commit_async()
 
     return volume
-# sum_i ceil(log_2(shape[i] / chunk_shape[i]))
+
+
+def _get_shard_box(shard_index_xyz, shard_size, volume_size):
+    box = [[int(i*s), int((i+1)*s)] for i,s in zip(shard_index_xyz, shard_size)]
+    box = _limit_box_by_total_size(box, volume_size)
+    return box
+
+
+def _get_shifted_box(box_xy, xy_offset):
+    shifted_box_xy = np.array(np.maximum(0, box_xy-np.tile(xy_offset,(2,1)).T),
+                              dtype=int)
+    return shifted_box_xy
+
+
+def _limit_box_by_total_size(box, total_size):
+    limited_box = [[max(0, min(b[0], s)),
+                    max(0, min(b[1], s))]
+            for b, s in zip(box, total_size)]
+    return limited_box
+
+
+def _box_to_slices(box):
+    slices = [slice(b[0], b[1])for b in box]
+    return slices
+
+
+def _limit_box_by_another_box_size(box, limit_box):
+    lbox = [[b[0], min(b[1], b[0]+lb[1]-lb[0])]
+            for b, lb in zip(box, limit_box)]
+    return lbox

@@ -6,11 +6,13 @@ import json
 from sbem.section_align.align_utils import (load_offsets, offsets_to_coords)
 from sbem.render_volume.render_utils import render_volume
 
+from datetime import datetime
+
 async def main():
     sbem_experiment="/tungstenfs/scratch/gfriedri/hubo/em_alignment/results/sbem_experiments/20220524_Bo_juv20210731"
     grid_index=1
     start_section=6250
-    end_section=6752
+    end_section=6753
     resolution = [11, 11, 33]
     volume_name = f"s{start_section}_s{end_section}"
     volume_path = os.path.join(sbem_experiment, "volume", volume_name+"_ng")
@@ -32,8 +34,15 @@ async def main():
     with open(coord_file, "w") as f:
         json.dump(coord_result, f, indent=4)
 
-
-    volume = await render_volume(volume_path, sections, xy_coords, resolution)
+    print("Start rendering")
+    print(datetime.now().strftime('%H: %M: %S %p'))
+    preshift_bits = 6
+    minishard_bits = 3
+    volume = await render_volume(volume_path, sections, xy_coords, resolution,
+                                 preshift_bits=preshift_bits,
+                                 minishard_bits=minishard_bits)
+    print("End rendering")
+    print(datetime.now().strftime('%H: %M: %S %p'))
 
 
 if __name__ == "__main__":
