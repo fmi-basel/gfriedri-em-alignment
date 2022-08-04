@@ -8,8 +8,8 @@ import tensorstore as ts
 
 from typing import List
 from sbem.record import SectionRecord
+from sbem.render_volume.schema import SizeHiearchy
 
-import tracemalloc
 
 async def read_n5(path: str):
     """
@@ -175,89 +175,66 @@ async def estimate_volume_size(stitched_sections, xy_coords):
     return volume_size
 
 
-def pick_shard_bits(volume_size, chunk_size,
+def pick_shard_bits(bits_xyz,
                     preshift_bits, minishard_bits):
-    grid_shape_in_chunks = np.ceil(np.divide(volume_size, chunk_size))
-    bits = np.ceil(np.log2(np.maximum(0, grid_shape_in_chunks - 1)))
-    total_z_index_bits = np.sum(bits)
+    total_z_index_bits = np.sum(bits_xyz)
     shard_bits = total_z_index_bits - (preshift_bits + minishard_bits)
     shard_bits = int(shard_bits)
     if shard_bits <= 0:
         msg = f"non_shard_bits {preshift_bits}+{minishard_bits}"+\
               f"should be less than total_z_index_bits {total_z_index_bits}"
         raise ValueError(msg)
-    return shard_bits, bits
-
-def prepare_render_volume():
-    pass
+    return shard_bits
 
 
-def write_volume():
-    pass
-
-
-
-async def render_volume(volume_path: str,
-                        sections: List["SectionRecord"],
-                        xy_coords: np.ndarray,
-                        resolution: List[int],
-                        chunk_size: List[int]=[64, 64, 64],
-                        downsample: bool=False,
-                        downsample_factors: List[int]=[1, 1],
-                        downsample_method: str="mean",
-                        preshift_bits=9,
-                        minishard_bits=6):
-    """
-    Render a range of sections into a 3d wolume
-
-    :param volume_path: the path for writing the volume.
-    :param sections: a list of SectionRecord objects
-    :param xy_coords: N*2 array, N equals number of sections.
-                      Each row is XY offset of each section, with respect
-                      to the first secion.
-    :param resolution: resolution in nanometer in X, Y, Z.
-    :param chunk_size: Chunk size for saving chunked volume. Each element
-                       corresponds to dimension X, Y, Z.
-
-    :return volume: `tensorstore.TensorStore` referring to the created volume
-    """
+async def load_stitched_and_prepare_volume(sections, xy_coords,
+                                     chunk_size,
+                                     downsample_config=None):
     if np.any(xy_coords < 0):
         raise ValueError("The XY offset (xy_coords) should be non-negative.")
-    tracemalloc.start()
 
 
     stitched_sections = await read_stitched_sections(sections)
-    if downsample:
+    if downsample_config is not None:
         stitched_sections = downsample_sections(stitched_sections,
-                                                downsample_factors,
-                                                downsample_method)
+                                                **downsample_config)
         xy_coords = np.ceil(np.divide(xy_coords,downsample_factors)).astype(int)
 
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
 
+    grid_shape_in_chunks = np.ceil(np.divide(volume_size, chunk_size))
 
-    shard_bits, bits_xyz = pick_shard_bits(volume_size, chunk_size,
-                                    preshift_bits, minishard_bits)
-    print(f"bits_xyz: {bits_xyz}")
+    bits_xyz =  np.ceil(np.log2(np.maximum(0, grid_shape_in_chunks - 1)))
+
+    size_hierarchy = SizeHiearchy(volume_size=volume_size,
+                                  chunk_size=chunk_size,
+                                  grid_shape_in_chunks=grid_shape_in_chunks,
+                                  bits_xyz=bits_xyz)
+
+    return stitched_sections, xy_coord, size_hierarchy
+
+
+def prepare_sharding(size_hiearchy, preshift_bits, minishard_bits):
+    shard_bits = pick_shard_bits(size_hiearchy.bits_xyz,
+                                 preshift_bits, minishard_bits)
+
+    # This estimation of shard_size requires x,y,z
+    # non-zero bits all more than (preshift_bits+minishard_bits)/3
+    size_hiearchy.shard_size_in_chunks = (preshift_bits+minishard_bits)/3
+    size_hiearchy.shard_size = np.multiply(shard_size_in_chunks, chunk_size).astype(int)
+    size_hierarchy.grid_shape_in_shards = np.ceil(
+        np.divide(volume_size, shard_size)).astype(int)
 
     sharding_spec = get_sharding_spec(preshift_bits=preshift_bits,
                                       minishard_bits=minishard_bits,
                                       shard_bits=shard_bits)
 
-    volume = await create_volume(volume_path, volume_size, chunk_size,
-                                 resolution,
-                                 sharding=True, sharding_spec=sharding_spec)
-    print(f"volume_size: {volume_size}")
 
-    # This estimation of shard_size requires x,y,z
-    # non-zero bits all more than (preshift_bits+minishard_bits)/3
-    shard_size = np.multiply((preshift_bits+minishard_bits)/3,
-                             chunk_size).astype(int)
+    return sharding_spec, size_hierarchy
 
-    num_shards = np.ceil(np.divide(volume_size, shard_size)).astype(int)
-    print(f"num_shards: {num_shards}")
 
-    # The order of dimensions is XYZ
+async def write_volume(volume, stitched_sections, xy_coords, size_hiearchy):
+    # (i, j, k) corresponds to XYZ
     for k in range(num_shards[2]):
         for i in range(num_shards[0]):
             for j in range(num_shards[1]):
@@ -284,7 +261,8 @@ async def render_volume(volume_path: str,
         for z in range(*box[2]):
             stitched_sections[z] = None
 
-    return volume
+
+
 
 
 def _get_shard_box(shard_index_xyz, shard_size, volume_size):

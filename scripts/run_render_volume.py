@@ -5,6 +5,7 @@ import json
 
 from sbem.section_align.align_utils import (load_offsets, offsets_to_coords)
 from sbem.render_volume.render_utils import render_volume
+from sbem.render_volume.param_schema import RenderVolumeConfig
 
 from datetime import datetime
 
@@ -14,10 +15,19 @@ async def main():
     start_section=2500
     end_section=9000
     resolution = [11, 11, 33]
+    chunk_size=[64, 64, 64]
+    downsample = True
+    downsample_factors = [8, 8]
+    preshift_bits = 6
+    minishard_bits = 3
+
+
     volume_name = f"s{start_section}_s{end_section}"
     volume_path = os.path.join(sbem_experiment, "volume", volume_name+"_ng")
 
     offset_dir = os.path.join(sbem_experiment, "zalign", "ob_substack")
+
+
     load_sections_spec = dict(sbem_experiment=sbem_experiment,
                               grid_index=grid_index,
                               start_section=, end_section,
@@ -39,10 +49,23 @@ async def main():
 
     print("Start rendering")
     print(datetime.now().strftime('%H: %M: %S %p'))
-    downsample = True
-    downsample_factors = [8, 8]
-    preshift_bits = 6
-    minishard_bits = 3
+
+    render_volme_config = RenderVolumeConfig(
+        volume_path=volume_path,
+        sections=sections,
+        xy_coords=xy_coords,
+        resolution=resolution,
+        chunk_size=chunk_size,
+        preshift_bits=9
+        minishard_bits=6
+        downsample=True,
+        downsample_factors=[4,4],
+        downsample_method="mean")
+
+    volume_spec = await prepare_render_volume(render_volme_config)
+
+    volume = await write_volume()
+
     volume = await render_volume(volume_path, sections, xy_coords, resolution,
                                  downsample=downsample,
                                  downsample_factors=downsample_factors,

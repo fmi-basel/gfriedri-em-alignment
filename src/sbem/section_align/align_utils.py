@@ -165,3 +165,12 @@ def offsets_to_coords(xy_offsets, non_neg=True):
         xy_coords = xy_coords - xy_coords.min(axis=0)
     xy_coords = xy_coords.astype(int)
     return xy_coords
+
+
+def save_coords(coord_file, sections, xy_offsets, xy_coords):
+    section_numbers = [s.section_id[0] for s in sections]
+    coord_result = dict(section_numbers=section_numbers,
+                        xy_offsets=xy_offsets.tolist(),
+                        xy_coords=xy_coords.tolist())
+    with open(coord_file, "w") as f:
+        json.dump(coord_result, f, indent=4)
