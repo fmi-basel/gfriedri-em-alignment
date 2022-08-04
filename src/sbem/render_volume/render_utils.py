@@ -26,7 +26,7 @@ async def read_n5(path: str):
             'path': path,
             },
         "context": {
-            "cache_pool": {"total_bytes_limit": 1024*1024*1024},
+            "cache_pool": {"total_bytes_limit": 40*1024*1024},
             "data_copy_concurrency": {"limit": 8},
             'file_io_concurrency': {'limit': 8}
             }
@@ -57,6 +57,18 @@ async def read_stitched_sections(sections: List["SectionRecord"]):
         stitched_sections.append(stitched)
 
     return stitched_sections
+
+
+def downsample_sections(stitched_sections,
+                        downsample_factors,
+                        method):
+    dsampled_sections = []
+
+    for ssec in stitched_sections:
+        ds = ts.downsample(ssec, downsample_factors, method)
+        dsampled_sections.append(ds)
+
+    return dsampled_sections
 
 
 def get_sharding_spec(preshift_bits=9, minishard_bits=6, shard_bits=15):
@@ -105,7 +117,7 @@ async def create_volume(path: str,
             "resolution": resolution,
             },
         "context": {
-            "cache_pool": {"total_bytes_limit": 40*1024*1024*1024},
+            "cache_pool": {"total_bytes_limit": 20*1024*1024*1024},
             "data_copy_concurrency": {"limit": 20},
             'file_io_concurrency': {'limit': 20}
             },
@@ -174,7 +186,14 @@ def pick_shard_bits(volume_size, chunk_size,
         msg = f"non_shard_bits {preshift_bits}+{minishard_bits}"+\
               f"should be less than total_z_index_bits {total_z_index_bits}"
         raise ValueError(msg)
-    return shard_bits
+    return shard_bits, bits
+
+def prepare_render_volume():
+    pass
+
+
+def write_volume():
+    pass
 
 
 
@@ -183,6 +202,9 @@ async def render_volume(volume_path: str,
                         xy_coords: np.ndarray,
                         resolution: List[int],
                         chunk_size: List[int]=[64, 64, 64],
+                        downsample: bool=False,
+                        downsample_factors: List[int]=[1, 1],
+                        downsample_method: str="mean",
                         preshift_bits=9,
                         minishard_bits=6):
     """
@@ -205,11 +227,18 @@ async def render_volume(volume_path: str,
 
 
     stitched_sections = await read_stitched_sections(sections)
+    if downsample:
+        stitched_sections = downsample_sections(stitched_sections,
+                                                downsample_factors,
+                                                downsample_method)
+        xy_coords = np.ceil(np.divide(xy_coords,downsample_factors)).astype(int)
+
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
 
 
-    shard_bits = pick_shard_bits(volume_size, chunk_size,
-                                 preshift_bits, minishard_bits)
+    shard_bits, bits_xyz = pick_shard_bits(volume_size, chunk_size,
+                                    preshift_bits, minishard_bits)
+    print(f"bits_xyz: {bits_xyz}")
 
     sharding_spec = get_sharding_spec(preshift_bits=preshift_bits,
                                       minishard_bits=minishard_bits,
@@ -226,13 +255,13 @@ async def render_volume(volume_path: str,
                              chunk_size).astype(int)
 
     num_shards = np.ceil(np.divide(volume_size, shard_size)).astype(int)
+    print(f"num_shards: {num_shards}")
 
     # The order of dimensions is XYZ
-    for i in range(num_shards[0]):
-        for j in range(num_shards[1]):
-            for k in range(num_shards[2]):
+    for k in range(num_shards[2]):
+        for i in range(num_shards[0]):
+            for j in range(num_shards[1]):
                 shard_index_xyz = (i, j, k)
-                print(f"shard_index {shard_index_xyz}")
                 box = _get_shard_box(shard_index_xyz, shard_size,
                                     volume_size)
                 txn = ts.Transaction()
@@ -249,8 +278,11 @@ async def render_volume(volume_path: str,
                     source = stitched[slices_xy[0], slices_xy[1]]
                     await volume[target_slices[0], target_slices[1],
                                  z, 0].with_transaction(txn).write(source)
-            print("Start writing")
-            await txn.commit_async()
+                print(f"Start writing {shard_index_xyz}")
+                await txn.commit_async()
+
+        for z in range(*box[2]):
+            stitched_sections[z] = None
 
     return volume
 

@@ -11,16 +11,19 @@ from datetime import datetime
 async def main():
     sbem_experiment="/tungstenfs/scratch/gfriedri/hubo/em_alignment/results/sbem_experiments/20220524_Bo_juv20210731"
     grid_index=1
-    start_section=6250
-    end_section=6753
+    start_section=2500
+    end_section=9000
     resolution = [11, 11, 33]
     volume_name = f"s{start_section}_s{end_section}"
     volume_path = os.path.join(sbem_experiment, "volume", volume_name+"_ng")
 
     offset_dir = os.path.join(sbem_experiment, "zalign", "ob_substack")
-    logger = logging.getLogger(__name__)
-    xy_offsets, sections = load_offsets(offset_dir, sbem_experiment, grid_index,
-                                        start_section, end_section, logger=logger)
+    load_sections_spec = dict(sbem_experiment=sbem_experiment,
+                              grid_index=grid_index,
+                              start_section=, end_section,
+                              exclude_sections=exclude_sections)
+    load_sections_config = LoadSectionsConfig.from_dict(config["load_sections"])
+    xy_offsets, sections = load_offsets(offset_dir, load_sections_config)
     xy_coords = offsets_to_coords(xy_offsets)
 
     coord_dir = os.path.join(sbem_experiment, "zalign", "ob_substack", "coord")
@@ -36,11 +39,16 @@ async def main():
 
     print("Start rendering")
     print(datetime.now().strftime('%H: %M: %S %p'))
+    downsample = True
+    downsample_factors = [8, 8]
     preshift_bits = 6
     minishard_bits = 3
     volume = await render_volume(volume_path, sections, xy_coords, resolution,
+                                 downsample=downsample,
+                                 downsample_factors=downsample_factors,
                                  preshift_bits=preshift_bits,
                                  minishard_bits=minishard_bits)
+
     print("End rendering")
     print(datetime.now().strftime('%H: %M: %S %p'))
 

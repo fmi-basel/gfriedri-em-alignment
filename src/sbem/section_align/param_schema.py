@@ -19,7 +19,8 @@ class LoadSectionsConfig:
 @dataclass
 class AlignSectionsConfig:
     """Class for align section parameters"""
-    crop_size: Tuple[int, int]
-    downscale_factor: Tuple[int, int]
+    crop_sizes: List[Tuple[int, int]]
     range_limit: float
     filter_size: int
+    downsample: bool = False
+    downsample_factors: Tuple[int, int] = (1, 1)

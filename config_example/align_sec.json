@@ -3,12 +3,13 @@
         "sbem_experiment": "/tungstenfs/scratch/gfriedri/hubo/em_alignment/results/sbem_experiments/20220524_Bo_juv20210731",
         "grid_index": 1,
         "start_section": 2500,
-        "end_section": 7000,
-        "exclude_sections": [2793, 4872, 4872]
+        "end_section": 9548,
+        "exclude_sections": [2793, 2794, 4872, 4873, 8761, 8762]
     },
     "align_sections":{
-        "crop_size": [400, 400],
-        "downscale_factor": [1, 1],
+        "crop_sizes": [[400, 400], [5000, 5000], [10000, 10000]],
+        "downsample": false,
+        "downsample_factors": [1, 1],
         "range_limit": 10,
         "filter_size": 10
     },

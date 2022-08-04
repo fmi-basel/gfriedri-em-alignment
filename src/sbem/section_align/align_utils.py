@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import zarr
 import numpy as np
 
@@ -19,7 +20,7 @@ def load_n5(path):
     return img
 
 
-def downscale_image(img, factor):
+def downsample_image(img, factor):
     return downscale_local_mean(img, factor)
 
 
@@ -49,25 +50,41 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path):
     pre = load_n5(pre_path)
     post = load_n5(post_path)
 
-    pre_cropped, pre_ctr = crop_image_center(pre, *align_config.crop_size)
-    post_cropped, post_ctr = crop_image_center(post, *align_config.crop_size)
+    margin = 10
+    done = False
+    for crop_size in align_config.crop_sizes:
+        pre_cropped, pre_ctr = crop_image_center(pre, *crop_size)
+        post_cropped, post_ctr = crop_image_center(post, *crop_size)
 
-    dsf = align_config.downscale_factor
-    pre_scaled = downscale_image(pre_cropped, dsf)
-    post_scaled = downscale_image(post_cropped, dsf)
+        if align_config.downsample:
+            dsf = align_config.downsample_factors
+            pre_cropped = downsample_image(pre_cropped, dsf)
+            post_cropped = downsample_image(post_cropped, dsf)
 
-    xyo, pr = estimate_offset(pre_scaled, post_scaled, align_config)
+        xyo, pr = estimate_offset(pre_cropped, post_cropped, align_config)
+
+        if not np.isnan(xyo).any():
+            dist_to_crop = np.array(crop_size) - margin - np.abs(xyo)
+            if (dist_to_crop >= 0).all():
+                done = True
+                break
+
+    if not done:
+        raise Exception("No match found.")
     # Offset w.r.t top-let corner of each image
     ctr_diff = pre_ctr - post_ctr
     xyo = xyo + np.flip(ctr_diff)
-    # TODO increase crop_size in case offset equals limit of cropped region
-    xyo = np.multiply(xyo, align_config.downscale_factor)
+
+    if align_config.downsample:
+        xyo = np.multiply(xyo, align_config.downsample_factors)
     save_offset(xyo, pr, offset_path)
 
 
 def load_sections(sbem_experiment, grid_index, start_section, end_section,
                   exclude_sections=None,
                   logger=None):
+    if logger is None:
+        logger = logging.getLogger()
     exp = Experiment(logger=logger)
     exp.load(sbem_experiment)
     sections = exp.load_sections(start_section, end_section, grid_index)
@@ -116,8 +133,8 @@ def get_pair_name(section_pair):
     return f"{section_pair[0].get_name()}_{section_pair[1].get_name()}"
 
 
-def load_offsets(offset_dir, sbem_experiment, grid_index, start_section, end_section, logger=None):
-    sections = load_sections(sbem_experiment, grid_index, start_section, end_section, logger=logger)
+def load_offsets(offset_dir, load_sections_config):
+    sections = load_sections(**load_sections_config.to_dict())
     section_pairs = get_section_pairs(sections)
 
     xyo_list = []

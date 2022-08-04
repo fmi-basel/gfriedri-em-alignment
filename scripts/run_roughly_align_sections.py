@@ -44,7 +44,7 @@ if __name__ == "__main__":
     if not os.path.exists(offset_dir):
         os.mkdir(offset_dir)
 
-    num_workers=6
+    num_workers=4
     flow.executor = LocalDaskExecutor(num_workers=num_workers)
 
     kwargs = dict(load_sections_config=load_sections_config,
