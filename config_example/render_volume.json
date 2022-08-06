@@ -1,0 +1,22 @@
+{
+    "load_sections": {
+        "sbem_experiment": "sbem_experiments/20220524_Bo_juv20210731",
+        "grid_index": 1,
+        "start_section": 2500,
+        "end_section": 9000,
+        "exclude_sections": [2793, 2794, 4872, 4873, 8761, 8762]
+    },
+    "offset_dir": "sbem_experiments/20220524_Bo_juv20210731/zalign/ob_substack",
+    "coord_file": "sbem_experiments/20220524_Bo_juv20210731/zalign/ob_substack/coord/ob_substack_coord.json",
+    "volume": {
+        "path": "sbem_experiments/20220524_Bo_juv20210731/volume/ob_substack.precomputed",
+        "resolution": [11, 11, 33],
+        "chunk_size": [64, 64, 64],
+        "preshift_bits": 9,
+        "minishard_bits": 6
+    },
+    "downsample": {
+        "downsample_factors": [8, 8],
+        "method": "mean"
+    }
+}

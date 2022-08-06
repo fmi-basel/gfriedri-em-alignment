@@ -5,6 +5,7 @@ import zarr
 import numpy as np
 
 from skimage.transform import downscale_local_mean
+from skimage.io import imsave
 from sofima import stitch_rigid
 from sbem.experiment import Experiment
 
@@ -46,7 +47,8 @@ def save_offset(xyo, pr, save_path):
         json.dump(result, f)
 
 
-def estimate_offset_and_save(pre_path, post_path, align_config, offset_path):
+def estimate_offset_and_save(pre_path, post_path, align_config, offset_path,
+                             debug=False):
     pre = load_n5(pre_path)
     post = load_n5(post_path)
 
@@ -60,6 +62,14 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path):
             dsf = align_config.downsample_factors
             pre_cropped = downsample_image(pre_cropped, dsf)
             post_cropped = downsample_image(post_cropped, dsf)
+
+        if debug:
+            base_dir, file_name = os.path.split(offset_path)
+            debug_dir = os.path.join(base_dir, f"debug_{os.path.splitext(file_name)[0]}")
+            if not os.path.exists(debug_dir):
+                os.mkdir(debug_dir)
+            imsave(os.path.join(debug_dir, "pre.tif"), pre_cropped)
+            imsave(os.path.join(debug_dir, "post.tif"), post_cropped)
 
         xyo, pr = estimate_offset(pre_cropped, post_cropped, align_config)
 

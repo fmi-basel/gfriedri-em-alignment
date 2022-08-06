@@ -182,7 +182,7 @@ def pick_shard_bits(bits_xyz,
     shard_bits = int(shard_bits)
     if shard_bits <= 0:
         msg = f"non_shard_bits {preshift_bits}+{minishard_bits}"+\
-              f"should be less than total_z_index_bits {total_z_index_bits}"
+              f" should be less than total_z_index_bits {total_z_index_bits}"
         raise ValueError(msg)
     return shard_bits
 
@@ -197,8 +197,9 @@ async def load_stitched_and_prepare_volume(sections, xy_coords,
     stitched_sections = await read_stitched_sections(sections)
     if downsample_config is not None:
         stitched_sections = downsample_sections(stitched_sections,
-                                                **downsample_config)
-        xy_coords = np.ceil(np.divide(xy_coords,downsample_factors)).astype(int)
+                                                **downsample_config.to_dict())
+        dfs = downsample_config.downsample_factors
+        xy_coords = np.ceil(np.divide(xy_coords, dfs)).astype(int)
 
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
 
@@ -211,48 +212,53 @@ async def load_stitched_and_prepare_volume(sections, xy_coords,
                                   grid_shape_in_chunks=grid_shape_in_chunks,
                                   bits_xyz=bits_xyz)
 
-    return stitched_sections, xy_coord, size_hierarchy
+    return stitched_sections, xy_coords, size_hierarchy
 
 
-def prepare_sharding(size_hiearchy, preshift_bits, minishard_bits):
-    shard_bits = pick_shard_bits(size_hiearchy.bits_xyz,
+def prepare_sharding(hierarchy, preshift_bits, minishard_bits):
+    shard_bits = pick_shard_bits(hierarchy.bits_xyz,
                                  preshift_bits, minishard_bits)
 
     # This estimation of shard_size requires x,y,z
     # non-zero bits all more than (preshift_bits+minishard_bits)/3
-    size_hiearchy.shard_size_in_chunks = (preshift_bits+minishard_bits)/3
-    size_hiearchy.shard_size = np.multiply(shard_size_in_chunks, chunk_size).astype(int)
-    size_hierarchy.grid_shape_in_shards = np.ceil(
-        np.divide(volume_size, shard_size)).astype(int)
+    hierarchy.shard_size_in_chunks = (preshift_bits+minishard_bits)/3
+    hierarchy.shard_size = np.multiply(hierarchy.shard_size_in_chunks,
+                                           hierarchy.chunk_size).astype(int)
+    hierarchy.grid_shape_in_shards = np.ceil(
+        np.divide(hierarchy.volume_size, hierarchy.shard_size)).astype(int)
 
     sharding_spec = get_sharding_spec(preshift_bits=preshift_bits,
                                       minishard_bits=minishard_bits,
                                       shard_bits=shard_bits)
 
 
-    return sharding_spec, size_hierarchy
+    return sharding_spec, hierarchy
 
 
-async def write_volume(volume, stitched_sections, xy_coords, size_hiearchy):
+async def write_volume(volume, stitched_sections, xy_coords, size_hierarchy):
     # (i, j, k) corresponds to XYZ
+    num_shards = size_hierarchy.grid_shape_in_shards
     for k in range(num_shards[2]):
         for i in range(num_shards[0]):
             for j in range(num_shards[1]):
                 shard_index_xyz = (i, j, k)
-                box = _get_shard_box(shard_index_xyz, shard_size,
-                                    volume_size)
+                box = _get_shard_box(shard_index_xyz, size_hierarchy.shard_size,
+                                    size_hierarchy.volume_size)
                 txn = ts.Transaction()
                 for z in range(*box[2]):
                     stitched = stitched_sections[z]
                     xyo = xy_coords[z]
                     box_xy = _get_shifted_box(box[:2], xyo)
-                    box_xy = _limit_box_by_total_size(box_xy, stitched.shape)
-                    slices_xy = _box_to_slices(box_xy)
-                    target_box_xy = _limit_box_by_another_box_size(box[:2],
-                                                                   box_xy)
+
+                    source_box_xy = _limit_box_by_total_size(box_xy,
+                                                             stitched.shape)
+                    source_slices_xy = _box_to_slices(source_box_xy)
+
+                    target_box_xy = _get_shifted_box(source_box_xy, -xyo)
                     target_slices = _box_to_slices(target_box_xy)
 
-                    source = stitched[slices_xy[0], slices_xy[1]]
+                    source = stitched[source_slices_xy[0], source_slices_xy[1]]
+
                     await volume[target_slices[0], target_slices[1],
                                  z, 0].with_transaction(txn).write(source)
                 print(f"Start writing {shard_index_xyz}")
@@ -272,7 +278,7 @@ def _get_shard_box(shard_index_xyz, shard_size, volume_size):
 
 
 def _get_shifted_box(box_xy, xy_offset):
-    shifted_box_xy = np.array(np.maximum(0, box_xy-np.tile(xy_offset,(2,1)).T),
+    shifted_box_xy = np.array(box_xy-np.tile(xy_offset,(2,1)).T,
                               dtype=int)
     return shifted_box_xy
 
@@ -289,7 +295,8 @@ def _box_to_slices(box):
     return slices
 
 
-def _limit_box_by_another_box_size(box, limit_box):
-    lbox = [[b[0], min(b[1], b[0]+lb[1]-lb[0])]
-            for b, lb in zip(box, limit_box)]
-    return lbox
+# def _limit_box_by_another_box(box, limit_box):
+#     lbox = [[xxxx
+#              min(b[1], b[0]+lb[1]-lb[0])]
+#             for b, lb in zip(box, limit_box)]
+#     return lbox

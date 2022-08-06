@@ -21,7 +21,7 @@ def load_section_pairs(load_sections_config: LoadSectionsConfig,
 
 
 @task()
-def align_section_pair(section_pair, align_config, offset_dir):
+def align_section_pair(section_pair, align_config, offset_dir, debug=False):
     logger = prefect.context.get("logger")
     pair_name = get_pair_name(section_pair)
     offset_file = f"{pair_name}.json"
@@ -32,7 +32,8 @@ def align_section_pair(section_pair, align_config, offset_dir):
         pre_path = section_pair[0].get_stitched_path()
         post_path = section_pair[1].get_stitched_path()
         estimate_offset_and_save(pre_path, post_path,
-                                 align_config, offset_path)
+                                 align_config, offset_path,
+                                 debug=debug)
     except Exception as e:
         with open(offset_file, "w") as f:
             f.write("\"error\"")

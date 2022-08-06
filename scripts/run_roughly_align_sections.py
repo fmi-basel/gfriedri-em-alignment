@@ -19,6 +19,7 @@ with Flow("Roughly-align-sections") as flow:
     load_sections_config = Parameter("load_sections_config", required=True)
     align_config = Parameter("align_config", required=True)
     offset_dir = Parameter("offset_dir", required=True)
+    debug = Parameter("debug")
     logger = prefect.context.get("logger")
     logger.info("INFO level log message.")
 
@@ -26,12 +27,15 @@ with Flow("Roughly-align-sections") as flow:
 
     align_obj = align_section_pair.map(section_pairs,
                                        unmapped(align_config),
-                                       unmapped(offset_dir))
+                                       unmapped(offset_dir),
+                                       unmapped(debug))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config")
+    parser.add_argument("--debug", action="store_true",
+                        help="Debug offset estimation by saving cropped images")
     args = parser.parse_args()
 
     with open(args.config) as f:
@@ -40,6 +44,7 @@ if __name__ == "__main__":
     load_sections_config = LoadSectionsConfig.from_dict(config["load_sections"])
     align_config = AlignSectionsConfig.from_dict(config["align_sections"])
     offset_dir = config["output"]["offset_dir"]
+    debug = args.debug
 
     if not os.path.exists(offset_dir):
         os.mkdir(offset_dir)
@@ -49,5 +54,6 @@ if __name__ == "__main__":
 
     kwargs = dict(load_sections_config=load_sections_config,
                   align_config=align_config,
-                  offset_dir=offset_dir)
+                  offset_dir=offset_dir,
+                  debug=debug)
     state = flow.run(parameters=kwargs)
