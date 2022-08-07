@@ -25,9 +25,10 @@ async def render_volume(load_sections_config,
     save_coords(coord_file, sections, xy_offsets, xy_coords)
 
 
-    stitched_sections, xy_coords, size_hierarchy = \
+    stitched_sections, xy_coords, size_hierarchy, resolution = \
     await load_stitched_and_prepare_volume(sections, xy_coords,
                                            volume_config.chunk_size,
+                                           volume_config.resolution,
                                            downsample_config)
 
     sharding_spec, size_hierarchy = prepare_sharding(size_hierarchy,
@@ -37,6 +38,7 @@ async def render_volume(load_sections_config,
     logger.info("Prepare volume:")
     logger.info(f"size_hiearchy: {size_hierarchy.to_dict()}")
     logger.info(f"sharding_spec: {sharding_spec}")
+    logger.info(f"resolution: {resolution}")
 
     if os.path.exists(volume_config.path) and not overwrite:
         raise OSError(f"Volume {volume_config.path} already exists. "+\
@@ -51,7 +53,7 @@ async def render_volume(load_sections_config,
         volume = await create_volume(volume_config.path,
                                      size_hierarchy.volume_size,
                                      volume_config.chunk_size,
-                                     volume_config.resolution,
+                                     resolution,
                                      sharding=True,
                                      sharding_spec=sharding_spec)
         await write_volume(volume, stitched_sections, xy_coords, size_hierarchy)

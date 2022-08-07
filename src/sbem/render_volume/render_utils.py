@@ -188,8 +188,8 @@ def pick_shard_bits(bits_xyz,
 
 
 async def load_stitched_and_prepare_volume(sections, xy_coords,
-                                     chunk_size,
-                                     downsample_config=None):
+                                           chunk_size, resolution,
+                                           downsample_config=None):
     if np.any(xy_coords < 0):
         raise ValueError("The XY offset (xy_coords) should be non-negative.")
 
@@ -200,6 +200,7 @@ async def load_stitched_and_prepare_volume(sections, xy_coords,
                                                 **downsample_config.to_dict())
         dfs = downsample_config.downsample_factors
         xy_coords = np.ceil(np.divide(xy_coords, dfs)).astype(int)
+        resolution[:2] = np.multiply(resolution[:2], dfs)
 
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
 
@@ -212,7 +213,7 @@ async def load_stitched_and_prepare_volume(sections, xy_coords,
                                   grid_shape_in_chunks=grid_shape_in_chunks,
                                   bits_xyz=bits_xyz)
 
-    return stitched_sections, xy_coords, size_hierarchy
+    return stitched_sections, xy_coords, size_hierarchy, resolution
 
 
 def prepare_sharding(hierarchy, preshift_bits, minishard_bits):

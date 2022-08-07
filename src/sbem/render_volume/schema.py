@@ -9,7 +9,7 @@ from typing import Tuple, List, Optional
 class VolumeConfig:
     """Class for render volume parameters"""
     path: str
-    resolution: List[int]
+    resolution: List[float]
     chunk_size: List[int]
     preshift_bits: int
     minishard_bits: int
