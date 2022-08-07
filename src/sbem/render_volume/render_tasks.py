@@ -34,6 +34,10 @@ async def render_volume(load_sections_config,
                                                      volume_config.preshift_bits,
                                                      volume_config.minishard_bits,)
 
+    logger.info("Prepare volume:")
+    logger.info(f"size_hiearchy: {size_hierarchy.to_dict()}")
+    logger.info(f"sharding_spec: {sharding_spec}")
+
     if os.path.exists(volume_config.path) and not overwrite:
         raise OSError(f"Volume {volume_config.path} already exists. "+\
                       "Please use --overwrite option to overwrite.")
@@ -55,8 +59,4 @@ async def render_volume(load_sections_config,
         end_time = datetime.now()
         logger.info(end_time.strftime('%H: %M: %S %p'))
         execution_time = end_time - start_time
-        logger.info(f"Excution time: {execution_time.strftime('%H: %M: %S %p')}")
-    else:
-        logger.info("Prepare volume:")
-        logger.info(f"size_hiearchy: {size_hierarchy.to_dict()}")
-        logger.info(f"sharding_spec: {sharding_spec}")
+        logger.info(f"Excution time: {execution_time}")

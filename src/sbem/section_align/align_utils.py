@@ -48,12 +48,23 @@ def save_offset(xyo, pr, save_path):
 
 
 def estimate_offset_and_save(pre_path, post_path, align_config, offset_path,
+                             margin=50,
+                             min_diff_thresh=40,
                              debug=False):
+
+    def _is_valid_offset(offset, crop_size):
+        dist_to_crop = np.array(crop_size)*2 - margin - np.abs(xyo)
+        return (not np.isnan(xyo).any()) and (dist_to_crop >= 0).all()
+
     pre = load_n5(pre_path)
     post = load_n5(post_path)
 
-    margin = 10
     done = False
+    max_idx = -1
+    max_pr = 0
+    estimates = []
+    prs = []
+    crop_size_list = []
     for crop_size in align_config.crop_sizes:
         pre_cropped, pre_ctr = crop_image_center(pre, *crop_size)
         post_cropped, post_ctr = crop_image_center(post, *crop_size)
@@ -73,17 +84,55 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path,
 
         xyo, pr = estimate_offset(pre_cropped, post_cropped, align_config)
 
-        if not np.isnan(xyo).any():
-            dist_to_crop = np.array(crop_size) - margin - np.abs(xyo)
-            if (dist_to_crop >= 0).all():
-                done = True
-                break
+        if debug:
+            print("xyo, pr, crop_size")
+            print(xyo, pr, crop_size)
+
+        estimates.append(xyo)
+        prs.append(pr)
+        crop_size_list.append(crop_size)
+
+        valid = _is_valid_offset(xyo, crop_size)
+
+        # If a single peak is found, terminate search.
+        if pr == 0.0 and valid:
+            done = True
+            break
+
+        if pr > max_pr and valid:
+          max_pr = pr
+          max_idx = len(estimates) - 1
+
+    if not done:
+        min_diff = np.inf
+        min_idx = 0
+        for i, (off0, off1) in enumerate(zip(estimates, estimates[1:])):
+            diff = np.linalg.norm(np.array(off1) - np.array(off0))
+            if diff < min_diff and _is_valid_offset(off1, crop_size_list[i+1]):
+                min_diff = diff
+                min_idx = i
+
+        # If we found an offset with good consistency between two consecutive
+        # estimates, perfer that.
+        if min_diff < min_diff_thresh:
+            xyo = estimates[min_idx + 1]
+            pr = prs[min_idx + 1]
+            done = True
+        # Otherwise prefer the offset with maximum peak ratio.
+        elif max_idx >= 0:
+            xyo = estimates[max_idx]
+            pr = prs[max_idx]
+            done = True
 
     if not done:
         raise Exception("No match found.")
     # Offset w.r.t top-let corner of each image
     ctr_diff = pre_ctr - post_ctr
     xyo = xyo + np.flip(ctr_diff)
+
+    if debug:
+        print(f"center diff: {ctr_diff}")
+        print(f"xyo: {xyo}")
 
     if align_config.downsample:
         xyo = np.multiply(xyo, align_config.downsample_factors)

@@ -1,4 +1,5 @@
 import prefect
+import traceback
 from prefect import task
 from sofima import mesh
 
@@ -59,6 +60,8 @@ def run_sofima(
     except Exception as e:
         print(f"Encounter error in section {section.save_dir}.")
         print(e)
+        tb = traceback.format_exc()
+        print(tb)
         return section
 
 

@@ -1,5 +1,6 @@
 import os
 import prefect
+import traceback
 from prefect import task
 
 from sbem.section_align.align_utils import (
@@ -39,3 +40,5 @@ def align_section_pair(section_pair, align_config, offset_dir, debug=False):
             f.write("\"error\"")
         logger.error(f"Encounter error in section pair {pair_name}.")
         logger.error(e)
+        tb = traceback.format_exc()
+        logger.error(tb)
