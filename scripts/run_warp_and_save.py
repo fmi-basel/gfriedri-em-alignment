@@ -6,7 +6,6 @@ from prefect.executors import LocalDaskExecutor
 
 from sbem.tile_stitching.sofima_tasks import (
     load_sections,
-    load_section_list,
     run_warp_and_save)
 
 
@@ -16,7 +15,6 @@ def config_to_dict(config):
     warp_conf = config["WARP_CONFIG"]
     kwargs = {
         "sbem_experiment": default["sbem_experiment"],
-        "block": default["block"],
         "grid_index": int(default["grid_index"]),
         "stride": int(config["REGISTER_TILES"]["stride"]),
         "margin": int(warp_conf["margin"]),
@@ -43,10 +41,9 @@ def config_to_dict(config):
 
 with Flow("Section-Warping-and-Saving") as flow:
     sbem_experiment = Parameter("sbem_experiment", default="SBEM")
-    block = Parameter("block", default="Block")
     start_section = Parameter("start_section", default=0)
     end_section = Parameter("end_section", default=1)
-    section_num_list = Parameter("section_num_list", default=[])
+    section_num_list = Parameter("section_num_list", default=None)
     grid_index = Parameter("grid_index", default=1)
 
     stride = Parameter("stride", default=20)
@@ -58,20 +55,12 @@ with Flow("Section-Warping-and-Saving") as flow:
     nbins = Parameter("nbins", default=256)
     parallelism = Parameter("parallelism", default=4)
 
-    if section_num_list.is_not_equal([]):
-        sections = load_section_list(
-            sbem_experiment=sbem_experiment,
-            grid_index=grid_index,
-            section_num_list=section_num_list,
-            block=block)
-    else:
-        sections = load_sections(
-            sbem_experiment=sbem_experiment,
-            block=block,
-            grid_index=grid_index,
-            start_section=start_section,
-            end_section=end_section,
-            )
+    sections = load_sections(
+        sbem_experiment=sbem_experiment,
+        grid_index=grid_index,
+        start_section=start_section,
+        end_section=end_section,
+        section_num_list=section_num_list)
 
     warp_obj = run_warp_and_save.map(
         sections,

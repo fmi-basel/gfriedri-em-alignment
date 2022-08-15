@@ -243,7 +243,7 @@ async def write_volume(volume, stitched_sections, xy_coords, size_hierarchy):
         for i in range(num_shards[0]):
             for j in range(num_shards[1]):
                 shard_index_xyz = (i, j, k)
-                box = _get_shard_box(shard_index_xyz, size_hierarchy.shard_size,
+                box = get_shard_box(shard_index_xyz, size_hierarchy.shard_size,
                                     size_hierarchy.volume_size)
                 txn = ts.Transaction()
                 for z in range(*box[2]):
@@ -253,10 +253,10 @@ async def write_volume(volume, stitched_sections, xy_coords, size_hierarchy):
 
                     source_box_xy = _limit_box_by_total_size(box_xy,
                                                              stitched.shape)
-                    source_slices_xy = _box_to_slices(source_box_xy)
+                    source_slices_xy = box_to_slices(source_box_xy)
 
                     target_box_xy = _get_shifted_box(source_box_xy, -xyo)
-                    target_slices = _box_to_slices(target_box_xy)
+                    target_slices = box_to_slices(target_box_xy)
 
                     source = stitched[source_slices_xy[0], source_slices_xy[1]]
 
@@ -272,7 +272,7 @@ async def write_volume(volume, stitched_sections, xy_coords, size_hierarchy):
 
 
 
-def _get_shard_box(shard_index_xyz, shard_size, volume_size):
+def get_shard_box(shard_index_xyz, shard_size, volume_size):
     box = [[int(i*s), int((i+1)*s)] for i,s in zip(shard_index_xyz, shard_size)]
     box = _limit_box_by_total_size(box, volume_size)
     return box
@@ -291,13 +291,6 @@ def _limit_box_by_total_size(box, total_size):
     return limited_box
 
 
-def _box_to_slices(box):
+def box_to_slices(box):
     slices = [slice(b[0], b[1])for b in box]
     return slices
-
-
-# def _limit_box_by_another_box(box, limit_box):
-#     lbox = [[xxxx
-#              min(b[1], b[0]+lb[1]-lb[0])]
-#             for b, lb in zip(box, limit_box)]
-#     return lbox

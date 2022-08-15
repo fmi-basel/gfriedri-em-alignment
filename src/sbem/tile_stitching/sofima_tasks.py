@@ -95,25 +95,25 @@ def run_warp_and_save(
 
 
 @task()
-def load_sections(sbem_experiment, block, grid_index, start_section, end_section):
-    exp = Experiment()
-    exp.load(sbem_experiment)
+def load_sections(sbem_experiment, grid_index,
+                  start_section=None,
+                  end_section=None,
+                  section_num_list=None, logger=None):
+    if logger is None:
+        logger = prefect.context.get("logger")
 
-    block = exp.blocks[block]
-
-    return [
-        block.sections[(i, grid_index)] for i in range(start_section, end_section + 1)
-    ]
-
-@task()
-def load_section_list(sbem_experiment, grid_index, section_num_list, block=None):
-    # block parameter is ignored by this task
-    # it is only a placeholder for the prefect flow to run
-    logger = prefect.context.get("logger")
     exp = Experiment(logger=logger)
     exp.load(sbem_experiment)
-    sections = exp.load_section_list(section_num_list, grid_index)
+
+    if start_section and end_section:
+        sections = exp.load_sections(start_section, end_section, grid_index)
+    elif section_num_list is not None:
+        sections = exp.load_section_list(section_num_list, grid_index)
+    else:
+        raise ValueError("No section parameter supplied.")
+
     return sections
+
 
 @task()
 def build_integration_config(

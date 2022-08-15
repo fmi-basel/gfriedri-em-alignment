@@ -7,7 +7,6 @@ from prefect.executors import LocalDaskExecutor
 from sbem.tile_stitching.sofima_tasks import (
     build_integration_config,
     load_sections,
-    load_section_list,
     run_sofima,
 )
 
@@ -18,7 +17,6 @@ def config_to_dict(config):
     mesh_conf = config["MESH_INTEGRATION_CONFIG"]
     kwargs = {
         "sbem_experiment": default["sbem_experiment"],
-        "block": default["block"],
         "grid_index": int(default["grid_index"]),
         "batch_size": int(register_tiles["batch_size"]),
         "stride": int(register_tiles["stride"]),
@@ -63,10 +61,9 @@ def config_to_dict(config):
 
 with Flow("Tile-Stitching") as flow:
     sbem_experiment = Parameter("sbem_experiment", default="SBEM")
-    block = Parameter("block", default="Block")
     start_section = Parameter("start_section", default=0)
     end_section = Parameter("end_section", default=1)
-    section_num_list = Parameter("section_num_list", default=[])
+    section_num_list = Parameter("section_num_list", default=None)
     grid_index = Parameter("grid_index", default=1)
 
     dt = Parameter("dt", default=0.001)
@@ -100,20 +97,12 @@ with Flow("Tile-Stitching") as flow:
 
     n_workers = Parameter("n_workers", default=6)
 
-    if section_num_list.is_not_equal([]):
-        sections = load_section_list(
-            sbem_experiment=sbem_experiment,
-            grid_index=grid_index,
-            section_num_list=section_num_list,
-            block=block)
-    else:
-        sections = load_sections(
-            sbem_experiment=sbem_experiment,
-            block=block,
-            grid_index=grid_index,
-            start_section=start_section,
-            end_section=end_section,
-            )
+    sections = load_sections(
+        sbem_experiment=sbem_experiment,
+        grid_index=grid_index,
+        start_section=start_section,
+        end_section=end_section,
+        section_num_list=section_num_list)
 
     integration_config = build_integration_config(
         dt=dt,

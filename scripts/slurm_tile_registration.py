@@ -85,7 +85,7 @@ def main():
             section_end = min(section_start + n_sections_per_job, kwargs["end_section"])
             config["REGISTER_TILES"]["start_section"] = str(section_start)
             config["REGISTER_TILES"]["end_section"] = str(section_end)
-            submit_job(config, job_idx, run_dir)
+            submit_job(config, i, run_dir)
     else:
         submit_job(config, job_idx=0, run_dir=run_dir)
 
