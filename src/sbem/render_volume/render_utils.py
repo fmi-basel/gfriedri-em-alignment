@@ -8,7 +8,11 @@ import tensorstore as ts
 
 from typing import List
 from sbem.record import SectionRecord
-from sbem.render_volume.schema import SizeHiearchy
+from sbem.render_volume.hierarchy import SizeHierarchy
+from sbem.section_align.align_utils import (
+    load_offsets, offsets_to_coords, save_coords,
+    load_coords)
+from sbem.tile_stitching.sofima_utils import load_sections
 
 
 async def read_n5(path: str):
@@ -204,14 +208,8 @@ async def load_stitched_and_prepare_volume(sections, xy_coords,
 
     volume_size = await estimate_volume_size(stitched_sections, xy_coords)
 
-    grid_shape_in_chunks = np.ceil(np.divide(volume_size, chunk_size))
-
-    bits_xyz =  np.ceil(np.log2(np.maximum(0, grid_shape_in_chunks - 1)))
-
-    size_hierarchy = SizeHiearchy(volume_size=volume_size,
-                                  chunk_size=chunk_size,
-                                  grid_shape_in_chunks=grid_shape_in_chunks,
-                                  bits_xyz=bits_xyz)
+    size_hierarchy = SizeHierarchy(volume_size=volume_size,
+                                  chunk_size=chunk_size)
 
     return stitched_sections, xy_coords, size_hierarchy, resolution
 
@@ -220,13 +218,7 @@ def prepare_sharding(hierarchy, preshift_bits, minishard_bits):
     shard_bits = pick_shard_bits(hierarchy.bits_xyz,
                                  preshift_bits, minishard_bits)
 
-    # This estimation of shard_size requires x,y,z
-    # non-zero bits all more than (preshift_bits+minishard_bits)/3
-    hierarchy.shard_size_in_chunks = (preshift_bits+minishard_bits)/3
-    hierarchy.shard_size = np.multiply(hierarchy.shard_size_in_chunks,
-                                           hierarchy.chunk_size).astype(int)
-    hierarchy.grid_shape_in_shards = np.ceil(
-        np.divide(hierarchy.volume_size, hierarchy.shard_size)).astype(int)
+    hierarchy.compute_shard_size(preshift_bits, minishard_bits)
 
     sharding_spec = get_sharding_spec(preshift_bits=preshift_bits,
                                       minishard_bits=minishard_bits,
@@ -236,7 +228,11 @@ def prepare_sharding(hierarchy, preshift_bits, minishard_bits):
     return sharding_spec, hierarchy
 
 
-async def write_volume(volume, stitched_sections, xy_coords, size_hierarchy):
+async def write_volume(volume, stitched_sections, xy_coords,
+                       size_hierarchy, start_z=0,
+                       logger=logging.getLogger("write_volume")):
+    n_sec = len(stitched_sections)
+    end_z = start_z + n_sec
     # (i, j, k) corresponds to XYZ
     num_shards = size_hierarchy.grid_shape_in_shards
     for k in range(num_shards[2]):
@@ -245,10 +241,16 @@ async def write_volume(volume, stitched_sections, xy_coords, size_hierarchy):
                 shard_index_xyz = (i, j, k)
                 box = get_shard_box(shard_index_xyz, size_hierarchy.shard_size,
                                     size_hierarchy.volume_size)
+                if box[2][1] < start_z or box[2][0] > end_z:
+                    continue
+
                 txn = ts.Transaction()
                 for z in range(*box[2]):
-                    stitched = stitched_sections[z]
-                    xyo = xy_coords[z]
+                    sec_idx = z-start_z
+                    if sec_idx < 0 or sec_idx >= n_sec:
+                        continue
+                    stitched = stitched_sections[sec_idx]
+                    xyo = xy_coords[sec_idx]
                     box_xy = _get_shifted_box(box[:2], xyo)
 
                     source_box_xy = _limit_box_by_total_size(box_xy,
@@ -262,14 +264,14 @@ async def write_volume(volume, stitched_sections, xy_coords, size_hierarchy):
 
                     await volume[target_slices[0], target_slices[1],
                                  z, 0].with_transaction(txn).write(source)
-                print(f"Start writing {shard_index_xyz}")
+                    logger.info(f"Writing {shard_index_xyz}")
                 await txn.commit_async()
 
         for z in range(*box[2]):
-            stitched_sections[z] = None
-
-
-
+            sec_idx = z-start_z
+            if sec_idx < 0 or sec_idx >= n_sec:
+                continue
+            stitched_sections[sec_idx] = None
 
 
 def get_shard_box(shard_index_xyz, shard_size, volume_size):
@@ -294,3 +296,68 @@ def _limit_box_by_total_size(box, total_size):
 def box_to_slices(box):
     slices = [slice(b[0], b[1])for b in box]
     return slices
+
+
+async def prepare_volume(load_sections_config,
+                         offset_dir,
+                         coord_file,
+                         volume_config,
+                         downsample_config=None,
+                         overwrite=False,
+                         logger=logging.getLogger("prepare_volume")):
+    xy_offsets, sections = load_offsets(offset_dir, load_sections_config)
+    xy_coords = offsets_to_coords(xy_offsets)
+
+    save_coords(coord_file, sections, xy_offsets, xy_coords)
+
+    stitched_sections, xy_coords, size_hierarchy, resolution = \
+    await load_stitched_and_prepare_volume(sections, xy_coords,
+                                           volume_config.chunk_size,
+                                           volume_config.resolution,
+                                           downsample_config)
+
+    sharding_spec, size_hierarchy = prepare_sharding(size_hierarchy,
+                                                     volume_config.preshift_bits,
+                                                     volume_config.minishard_bits,)
+
+    logger.info("Prepare volume:")
+    logger.info(f"size_hiearchy: {size_hierarchy.to_dict()}")
+    logger.info(f"sharding_spec: {sharding_spec}")
+    logger.info(f"resolution: {resolution}")
+
+    if os.path.exists(volume_config.path) and not overwrite:
+        raise OSError(f"Volume {volume_config.path} already exists. "+\
+                      "Please use --overwrite option to overwrite.")
+
+    volume = await create_volume(volume_config.path,
+                                 size_hierarchy.volume_size,
+                                 volume_config.chunk_size,
+                                 resolution,
+                                 sharding=True,
+                                 sharding_spec=sharding_spec)
+
+    return volume, stitched_sections, xy_coords, size_hierarchy
+
+
+async def prepare_existing_volume(volume_path):
+    volume = await open_volume(volume_path)
+    chunk_size = volume.chunk_layout.read_chunk.shape[:-1]
+    shard_size = volume.chunk_layout.write_chunk.shape[:-1]
+    size_hierarchy = SizeHierarchy(volume_size=volume.shape[:-1],
+                                   chunk_size=chunk_size,
+                                   shard_size=shard_size)
+    return volume, size_hierarchy
+
+
+def load_sections_with_range(load_sections_config, sec_range, coord_file):
+    coord_result = load_coords(coord_file)
+    section_num_list = coord_result["section_numbers"][sec_range[0]:sec_range[1]]
+    xy_coords = coord_result["xy_coords"][sec_range[0]:sec_range[1]]
+    xy_coords = np.array(xy_coords)
+
+    load_sections_config.start_section = None
+    load_sections_config.end_section = None
+    load_sections_config.section_num_list = section_num_list
+
+    sections = load_sections(**load_sections_config.to_dict())
+    return sections, xy_coords

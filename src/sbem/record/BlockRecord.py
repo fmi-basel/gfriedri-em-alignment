@@ -153,7 +153,7 @@ class BlockRecord:
             self.sbem_root_dir = block_dict["sbem_root_dir"]
             self.section_keys = list(map(tuple, block_dict["sections"]))
 
-    def _init_sections(self, section_keys):
+    def _init_sections(self, section_keys, disable_tqdm=False):
         """
         Initiate section objects (only used in loading block)
 
@@ -161,7 +161,7 @@ class BlockRecord:
                              (section_num, tile_grid_num)
         """
         for (section_num, tile_grid_num) in tqdm(
-            section_keys, desc="Initiating sections"
+            section_keys, desc="Initiating sections", disable=disable_tqdm
         ):
             if (section_num, tile_grid_num) not in self.section_keys:
                 continue
@@ -173,7 +173,7 @@ class BlockRecord:
                 logger=self.logger,
             )
 
-    def _load_sections(self, section_keys):
+    def _load_sections(self, section_keys, disable_tqdm=False):
         """
         Load sections
 
@@ -187,7 +187,8 @@ class BlockRecord:
         """
         section_list = self.get_sections(section_keys)
         for section in tqdm(section_list,
-                            desc="Loading sections"):
+                            desc="Loading sections",
+                            disable=disable_tqdm):
             if section is not None:
                 section.load(join(self.save_dir, section.get_name()))
         return section_list
@@ -227,6 +228,6 @@ class BlockRecord:
 
     def init_load_section(self, section_num: int, grid_num: int):
         section_keys = [(section_num, grid_num)]
-        self._init_sections(section_keys)
-        section =  self._load_sections(section_keys)[0]
+        self._init_sections(section_keys, disable_tqdm=True)
+        section =  self._load_sections(section_keys, disable_tqdm=True)[0]
         return section

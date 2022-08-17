@@ -8,6 +8,7 @@ import numpy as np
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
 from sbem.record.SectionRecord import SectionRecord
+from sbem.experiment.Experiment import Experiment
 
 
 def default_mesh_integration_config(stride: int = 20, k0: float = 0.01, k: float = 0.1):
@@ -190,3 +191,27 @@ def render_tiles(
         return stitched, mask
     else:
         return None, None
+
+
+def load_sections(sbem_experiment, grid_index,
+                  start_section=None,
+                  end_section=None,
+                  section_num_list=None,
+                  exclude_sections=None,
+                  logger=logging.getLogger("load_sections")):
+
+    exp = Experiment(logger=logger)
+    exp.load(sbem_experiment)
+
+    if start_section and end_section:
+        sections = exp.load_sections(start_section, end_section, grid_index)
+    elif section_num_list is not None:
+        sections = exp.load_section_list(section_num_list, grid_index)
+    else:
+        raise ValueError("No section parameter supplied.")
+
+    if exclude_sections:
+        sections = [s for s in sections
+                    if s.section_id[0] not in exclude_sections]
+
+    return sections

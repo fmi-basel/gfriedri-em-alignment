@@ -5,7 +5,7 @@ from prefect import Flow, Parameter, unmapped
 from prefect.executors import LocalDaskExecutor
 
 from sbem.tile_stitching.sofima_tasks import (
-    load_sections,
+    load_sections_task,
     run_warp_and_save)
 
 
@@ -55,7 +55,7 @@ with Flow("Section-Warping-and-Saving") as flow:
     nbins = Parameter("nbins", default=256)
     parallelism = Parameter("parallelism", default=4)
 
-    sections = load_sections(
+    sections = load_sections_task(
         sbem_experiment=sbem_experiment,
         grid_index=grid_index,
         start_section=start_section,

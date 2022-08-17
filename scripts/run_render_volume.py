@@ -42,6 +42,16 @@ if __name__ == "__main__":
     else:
         downsample_config = None
 
+    if "write_range" in config:
+        write_range = config["write_range"]
+    else:
+        write_range = None
+
+    if "write_to_existing" in config:
+        write_to_existing = config["write_to_existing"]
+    else:
+        write_to_existing = False
+
     kwargs = dict(load_sections_config=load_sections_config,
                   offset_dir=offset_dir,
                   coord_file=coord_file,
@@ -49,6 +59,8 @@ if __name__ == "__main__":
                   downsample_config=downsample_config,
                   overwrite=args.overwrite,
                   no_write=args.no_write,
+                  write_range=write_range,
+                  write_to_existing=write_to_existing,
                   logger=logger)
 
     asyncio.run(render_volume(**kwargs))

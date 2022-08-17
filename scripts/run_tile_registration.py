@@ -6,7 +6,7 @@ from prefect.executors import LocalDaskExecutor
 
 from sbem.tile_stitching.sofima_tasks import (
     build_integration_config,
-    load_sections,
+    load_sections_task,
     run_sofima,
 )
 
@@ -97,7 +97,7 @@ with Flow("Tile-Stitching") as flow:
 
     n_workers = Parameter("n_workers", default=6)
 
-    sections = load_sections(
+    sections = load_sections_task(
         sbem_experiment=sbem_experiment,
         grid_index=grid_index,
         start_section=start_section,

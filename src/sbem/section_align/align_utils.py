@@ -233,3 +233,9 @@ def save_coords(coord_file, sections, xy_offsets, xy_coords):
                         xy_coords=xy_coords.tolist())
     with open(coord_file, "w") as f:
         json.dump(coord_result, f, indent=4)
+
+
+def load_coords(coord_file):
+    with open(coord_file) as f:
+        coord_result = json.load(f)
+    return coord_result

@@ -20,14 +20,3 @@ class VolumeConfig:
 class DownsampleConfig:
     downsample_factors: Tuple[int]=(1, 1)
     method: str="mean"
-
-
-@dataclass_json
-@dataclass
-class SizeHiearchy:
-    volume_size: Optional[List[int]]=None
-    shard_size: Optional[List[int]]=None
-    chunk_size: Optional[List[int]]=None
-    grid_shape_in_chunks: Optional[List[int]]=None
-    grid_shape_in_shards: Optional[List[int]]=None
-    bits_xyz: Optional[List[int]]=None

@@ -5,7 +5,8 @@ from sofima import mesh
 
 from sbem.experiment import Experiment
 from sbem.record.SectionRecord import SectionRecord
-from sbem.tile_stitching.sofima_utils import default_mesh_integration_config
+from sbem.tile_stitching.sofima_utils import (
+    default_mesh_integration_config, load_sections)
 
 
 @task()
@@ -95,23 +96,11 @@ def run_warp_and_save(
 
 
 @task()
-def load_sections(sbem_experiment, grid_index,
-                  start_section=None,
-                  end_section=None,
-                  section_num_list=None, logger=None):
-    if logger is None:
-        logger = prefect.context.get("logger")
+def load_sections_task(**kwargs):
+    if "logger" not in kwargs:
+        kwargs["logger"]=prefect.context.get("load_sections")
 
-    exp = Experiment(logger=logger)
-    exp.load(sbem_experiment)
-
-    if start_section and end_section:
-        sections = exp.load_sections(start_section, end_section, grid_index)
-    elif section_num_list is not None:
-        sections = exp.load_section_list(section_num_list, grid_index)
-    else:
-        raise ValueError("No section parameter supplied.")
-
+    sections = load_sections(**kwargs)
     return sections
 
 

@@ -309,7 +309,8 @@ class Experiment:
         block_list = [self.get_block_for_section(s) for s in section_num_list]
         section_list = []
 
-        for block_name, sec in zip(block_list, section_num_list):
+        for block_name, sec in tqdm(zip(block_list, section_num_list),
+                                    desc="Load section list"):
             section = self.blocks[block_name].init_load_section(sec, grid_num)
             section_list.append(section)
 
