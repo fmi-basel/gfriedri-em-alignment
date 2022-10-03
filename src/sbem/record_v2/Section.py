@@ -89,6 +89,10 @@ class Section(Info):
             self._fully_initialized = True
 
     def add_tile(self, tile: Tile):
+        if tile.get_section() is None:
+            tile._section = self
+        else:
+            assert tile.get_section() == self, "Tile belongs to another section."
         self.tiles[tile.get_tile_id()] = tile
 
     def get_tile(self, tile_id: int):
@@ -180,10 +184,10 @@ class Section(Info):
             return self._compute_tile_id_map()
 
     def to_dict(self) -> Dict:
-        tiles = {}
+        tiles = []
         for k in self.tiles.keys():
             t = self.tiles.get(k)
-            tiles[str(t.get_tile_id())] = t.to_dict()
+            tiles.append(t.to_dict())
 
         return {
             "license": self.get_license(),

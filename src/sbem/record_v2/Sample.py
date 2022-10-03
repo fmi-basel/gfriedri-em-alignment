@@ -36,6 +36,10 @@ class Sample(Info):
             self._experiment.add_sample(self)
 
     def add_section(self, section: Section):
+        if section.get_sample() is None:
+            section._sample = self
+        else:
+            assert section.get_sample() == self, "Tile belongs to another section."
         self.sections[section.get_section_id()] = section
 
     def get_section(self, section_id: str) -> Section:
