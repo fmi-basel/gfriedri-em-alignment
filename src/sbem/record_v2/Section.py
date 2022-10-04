@@ -67,7 +67,7 @@ class Section(Info):
     @_Decorator.is_initialized
     def add_tile(self, tile: Tile):
         if tile.get_section() is None:
-            tile._section = self
+            tile.set_section(self)
         else:
             assert tile.get_section() == self, "Tile belongs to another section."
         self.tiles[tile.get_tile_id()] = tile
