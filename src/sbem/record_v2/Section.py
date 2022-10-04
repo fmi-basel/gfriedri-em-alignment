@@ -2,43 +2,40 @@ from __future__ import annotations
 
 import json
 import os
-import warnings
 from os.path import exists, join
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
 from ruyaml import YAML
 
 from sbem.record_v2.Info import Info
+from sbem.record_v2.Tile import Tile
 
 if TYPE_CHECKING:
     from typing import Dict
 
     from sbem.record_v2.Sample import Sample
-    from sbem.record_v2.Tile import Tile
 
 
 class Section(Info):
     def __init__(
         self,
         name: str,
-        root: str,
         stitched: bool,
         skip: bool,
         acquisition: str,
         sample: Sample,
         section_num: int,
         tile_grid_num: int,
-        thickness: int,
+        thickness: float,
         tile_height: int,
         tile_width: int,
         tile_overlap: int,
         license: str = "Creative Commons Attribution licence (CC " "BY)",
     ):
         super().__init__(name=name, license=license)
-        self._root = root
-        self._sample = sample
+        self.set_sample(sample)
         self._section_num = section_num
         self._tile_grid_num = tile_grid_num
         self._acquisition = acquisition
@@ -48,46 +45,26 @@ class Section(Info):
         self._tile_overlap = tile_overlap
         self._stitched = stitched
         self._skip = skip
-        self._tile_id_map = None
         self.tiles: Dict[int, Tile] = {}
-        self._fully_initialized = self._root is None
+        self._fully_initialized = True
 
         if self._sample is not None:
             self._sample.add_section(self)
 
-    def load_from_yaml(self):
-        if self._root is not None:
-            yaml = YAML(typ="rt")
-            with open(self._root) as f:
-                dict = yaml.load(f)
+    class _Decorator:
+        def is_initialized(func):
+            def wrapper(self, *args, **kwargs):
+                if not self._fully_initialized:
+                    raise RuntimeError(
+                        "Section is not fully initialized. Load "
+                        "from yaml with `section.load_from_yaml("
+                        "path)`."
+                    )
+                return func(self, *args, **kwargs)
 
-            assert self.get_name() == dict["name"]
-            assert self.get_format_version() == dict["format_version"]
-            assert self._acquisition == dict["acquisition"]
-            assert self._stitched == dict["stitched"]
-            assert self._skip == dict["skip"]
+            return wrapper
 
-            super()._license = dict["license"]
-            self._section_num = dict["section_num"]
-            self._tile_grid_num = dict["tile_grid_num"]
-            self._thickness = dict["thickness"]
-            self._tile_height = dict["tile_height"]
-            self._tile_width = dict["tile_width"]
-            self._tile_overlap = dict["tile_overlap"]
-
-            for t_key, t_dict in dict["tiles"].items():
-                tile = Tile(
-                    section=self,
-                    tile_id=t_dict["tile_id"],
-                    path=t_dict["path"],
-                    stage_x=t_dict["x"],
-                    stage_y=t_dict["y"],
-                    resolution_xy=t_dict["resolution_xy"],
-                )
-                self.tiles[t_key] = tile
-
-            self._fully_initialized = True
-
+    @_Decorator.is_initialized
     def add_tile(self, tile: Tile):
         if tile.get_section() is None:
             tile._section = self
@@ -95,33 +72,33 @@ class Section(Info):
             assert tile.get_section() == self, "Tile belongs to another section."
         self.tiles[tile.get_tile_id()] = tile
 
+    @_Decorator.is_initialized
     def get_tile(self, tile_id: int):
-        if tile_id not in self.tiles.keys():
-            self.warn_load_yaml("tile_id")
-            return None
         return self.tiles[tile_id]
 
-    def warn_load_yaml(self, var_name):
-        warnings.warn(
-            f"`{var_name}` is `None`. "
-            "Load values from yaml with "
-            "`section.load_from_yaml()`."
-        )
-
+    @_Decorator.is_initialized
     def get_section_num(self) -> int:
-        if self._section_num is None:
-            self.warn_load_yaml("section_num")
         return self._section_num
 
+    @_Decorator.is_initialized
     def get_tile_grid_num(self) -> int:
-        if self._tile_grid_num is None:
-            self.warn_load_yaml("tile_grid_num")
         return self._tile_grid_num
 
-    def get_thickness(self) -> int:
-        if self._thickness is None:
-            self.warn_load_yaml("thickness")
+    @_Decorator.is_initialized
+    def get_thickness(self) -> float:
         return self._thickness
+
+    @_Decorator.is_initialized
+    def get_tile_height(self) -> int:
+        return self._tile_height
+
+    @_Decorator.is_initialized
+    def get_tile_width(self) -> int:
+        return self._tile_width
+
+    @_Decorator.is_initialized
+    def get_tile_overlap(self) -> int:
+        return self._tile_overlap
 
     def get_acquisition(self) -> str:
         return self._acquisition
@@ -132,10 +109,17 @@ class Section(Info):
     def skip(self) -> bool:
         return self._skip
 
+    def set_sample(self, sample: Sample):
+        self._sample = sample
+
     def get_sample(self) -> Sample:
         return self._sample
 
+    @_Decorator.is_initialized
     def _compute_tile_id_map(self) -> ArrayLike:
+        if len(self.tiles) == 0:
+            return None
+
         xx, yy = set(), set()
         coords_to_tile = {}
         for t in self.tiles.values():
@@ -168,21 +152,26 @@ class Section(Info):
 
         return np.array(tile_id_map)
 
+    @_Decorator.is_initialized
     def get_tile_id_map(self, path=None) -> ArrayLike:
         if path is not None and exists(path):
             # Load from disk
             with open(path) as f:
                 data = json.load(f)
-                return np.array(data)
+
+            return np.array(data)
         elif path is not None and not exists(path):
             # Compute and save to disk
             tile_id_map = self._compute_tile_id_map()
             with open(path, "w") as f:
                 json.dump(tile_id_map.tolist(), f)
+
+            return tile_id_map
         else:
             # Just compute
             return self._compute_tile_id_map()
 
+    @_Decorator.is_initialized
     def to_dict(self) -> Dict:
         tiles = []
         for k in self.tiles.keys():
@@ -198,10 +187,10 @@ class Section(Info):
             "tile_height": self._tile_height,
             "tile_width": self._tile_width,
             "tile_overlap": self._tile_overlap,
-            "tile_id_map": self._tile_id_map,
             "tiles": tiles,
         }
 
+    @_Decorator.is_initialized
     def get_section_id(self) -> str:
         return f"s{self.get_section_num()}_g{self._tile_grid_num}"
 
@@ -210,6 +199,7 @@ class Section(Info):
         with open(join(path, "section.yaml"), "w") as f:
             yaml.dump(self.to_dict(), f)
 
+    @_Decorator.is_initialized
     def save(self, path: str, overwrite: bool = False):
         out_path = join(path, self.get_section_id())
         if not exists(out_path):
@@ -220,3 +210,65 @@ class Section(Info):
                 self._dump(path=out_path)
             else:
                 raise FileExistsError()
+
+    def load_from_yaml(self, path):
+        if path is not None:
+            yaml = YAML(typ="rt")
+            with open(path) as f:
+                dict = yaml.load(f)
+
+            self._load_details(dict)
+
+    def _load_details(self, dict: Dict):
+        assert self.get_format_version() == dict["format_version"]
+
+        self._license = dict["license"]
+        self._section_num = dict["section_num"]
+        self._tile_grid_num = dict["tile_grid_num"]
+        self._thickness = dict["thickness"]
+        self._tile_height = dict["tile_height"]
+        self._tile_width = dict["tile_width"]
+        self._tile_overlap = dict["tile_overlap"]
+
+        self._fully_initialized = True
+
+        for t_dict in dict["tiles"]:
+            tile = Tile(
+                section=self,
+                tile_id=t_dict["tile_id"],
+                path=t_dict["path"],
+                stage_x=t_dict["stage_x"],
+                stage_y=t_dict["stage_y"],
+                resolution_xy=t_dict["resolution_xy"],
+            )
+            self.tiles[tile.get_tile_id()] = tile
+
+    @staticmethod
+    def lazy_loading(
+        name: str,
+        stitched: bool,
+        skip: bool,
+        acquisition: str,
+        details: Union[Dict, str],
+    ) -> Section:
+        sec = Section(
+            name=name,
+            stitched=stitched,
+            skip=skip,
+            acquisition=acquisition,
+            sample=None,
+            section_num=None,
+            tile_grid_num=None,
+            thickness=None,
+            tile_height=None,
+            tile_width=None,
+            tile_overlap=None,
+            license=None,
+        )
+
+        if isinstance(details, str):
+            sec._fully_initialized = False
+        else:
+            sec._load_details(details)
+
+        return sec

@@ -46,6 +46,12 @@ class Tile:
     def get_resolution(self) -> float:
         return self._resolution_xy
 
+    def get_unit(self) -> str:
+        return self._unit
+
+    def set_section(self, section: Section):
+        self._section = section
+
     def get_section(self) -> Section:
         return self._section
 
@@ -58,3 +64,15 @@ class Tile:
             "resolution_xy": self._resolution_xy,
             "unit": self._unit,
         }
+
+    @staticmethod
+    def from_dict(dict: Dict):
+        return Tile(
+            section=None,
+            tile_id=dict["tile_id"],
+            path=dict["path"],
+            stage_x=dict["stage_x"],
+            stage_y=dict["stage_y"],
+            resolution_xy=dict["resolution_xy"],
+            unit=dict["unit"],
+        )

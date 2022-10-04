@@ -37,7 +37,7 @@ class Sample(Info):
 
     def add_section(self, section: Section):
         if section.get_sample() is None:
-            section._sample = self
+            section.set_sample(self)
         else:
             assert section.get_sample() == self, "Tile belongs to another section."
         self.sections[section.get_section_id()] = section
@@ -65,7 +65,7 @@ class Sample(Info):
                 "skip": s.is_stitched(),
             }
             if section_to_subdir:
-                sec_dict["details"] = join(".", s.get_section_id())
+                sec_dict["details"] = join(".", s.get_section_id(), "sample.yaml")
             else:
                 sec_dict["details"] = s.to_dict()
 
