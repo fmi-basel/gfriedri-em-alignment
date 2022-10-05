@@ -6,14 +6,13 @@ from typing import TYPE_CHECKING
 
 from ruyaml import YAML
 
+from sbem.record_v2.Author import Author
+from sbem.record_v2.Citation import Citation
 from sbem.record_v2.Info import Info
+from sbem.record_v2.Sample import Sample
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from typing import Dict, List
-
-    from sbem.record_v2.Author import Author
-    from sbem.record_v2.Citation import Citation
-    from sbem.record_v2.Sample import Sample
 
 
 class Experiment(Info):
@@ -24,7 +23,7 @@ class Experiment(Info):
         documentation: str,
         authors: List[Author],
         root_dir: str,
-        overwrite: bool = False,
+        exist_ok: bool = False,
         license: str = "Creative Commons Attribution licence (CC " "BY)",
         cite: List[Citation] = None,
     ):
@@ -37,9 +36,15 @@ class Experiment(Info):
         self._samples: Dict[str, Sample] = {}
 
         if self._root_dir is not None:
-            os.makedirs(self._root_dir, exist_ok=overwrite)
+            os.makedirs(self._root_dir, exist_ok=exist_ok)
 
     def add_sample(self, sample: Sample):
+        if sample.get_experiment() is None:
+            sample.set_experiment(self)
+        else:
+            assert sample.get_experiment() == self, (
+                "Sample belongs to " "another experiment."
+            )
         self._samples[sample.get_name()] = sample
 
     def get_sample(self, name: str) -> Sample:
@@ -53,9 +58,6 @@ class Experiment(Info):
 
     def get_root_dir(self) -> str:
         return self._root_dir
-
-    def get_format(self) -> str:
-        return self._format_version
 
     def get_authors_pretty(self) -> str:
         affilitations = {}
@@ -82,11 +84,11 @@ class Experiment(Info):
         citations = [c.to_pretty_str() for c in self._cite]
         return "\n\n".join(citations)
 
-    def to_dict(self, section_to_subdir: bool = True) -> Dict:
-        samples = {}
+    def to_dict(self) -> Dict:
+        samples = []
         for k in self._samples.keys():
             s = self._samples.get(k)
-            samples[s.get_name()] = join(".", s.get_name())
+            samples.append(s.get_name())
 
         return {
             "name": self.get_name(),
@@ -103,7 +105,7 @@ class Experiment(Info):
     def _dump(self, path: str, overwrite: bool = False, section_to_subdir: bool = True):
         yaml = YAML(typ="rt")
         with open(join(path, "experiment.yaml"), "w") as f:
-            yaml.dump(self.to_dict(section_to_subdir=section_to_subdir), f)
+            yaml.dump(self.to_dict(), f)
 
         for s in self._samples.values():
             s.save(path, overwrite=overwrite, section_to_subdir=section_to_subdir)
@@ -122,3 +124,36 @@ class Experiment(Info):
                     overwrite=overwrite,
                     section_to_subdir=section_to_subdir,
                 )
+            else:
+                raise FileExistsError()
+
+    @staticmethod
+    def load(path: str) -> Experiment:
+        yaml = YAML(typ="rt")
+        with open(path) as f:
+            data = yaml.load(f)
+
+        exp = Experiment(
+            name=data["name"],
+            description=data["description"],
+            documentation=data["documentation"],
+            authors=[
+                Author(name=a["name"], affiliation=a["affiliation"])
+                for a in data["authors"]
+            ],
+            root_dir=data["root_dir"],
+            exist_ok=True,
+            license=data["license"],
+            cite=[
+                Citation(doi=d["doi"], text=d["text"], url=d["url"])
+                for d in data["cite"]
+            ],
+        )
+
+        for s in data["samples"]:
+            sample = Sample.load(
+                join(exp.get_root_dir(), exp.get_name(), s, "sample.yaml")
+            )
+            exp.add_sample(sample)
+
+        return exp

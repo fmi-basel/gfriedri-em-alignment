@@ -38,11 +38,11 @@ class SectionTest(TestCase):
         tile_overlap = 200
         license = "Fake license."
         sec = Section(
+            sample,
             name,
             stitched,
             skip,
             acquisition,
-            sample,
             section_num,
             tile_grid_num,
             thickness,
@@ -67,7 +67,6 @@ class SectionTest(TestCase):
         assert sec.get_tile_id_map() is None
         assert len(sec.tiles) == 0
         assert sec._fully_initialized
-        assert sec.get_section_id() == f"s{section_num}_g{tile_grid_num}"
 
     def test_partial_init(self):
         name = "section_init"
@@ -101,9 +100,6 @@ class SectionTest(TestCase):
         self.assertRaises(RuntimeError, sec.get_tile_overlap)
         self.assertRaises(RuntimeError, sec._compute_tile_id_map)
         self.assertRaises(RuntimeError, sec.get_tile_id_map)
-        self.assertRaises(RuntimeError, sec.to_dict)
-        self.assertRaises(RuntimeError, sec.get_section_id)
-        self.assertRaises(RuntimeError, sec.save)
 
         tile = Tile(
             section=None,
@@ -156,11 +152,11 @@ class SectionTest(TestCase):
         tile_overlap = 200
         license = "Fake license."
         sec = Section(
+            sample,
             name,
             stitched,
             skip,
             acquisition,
-            sample,
             section_num,
             tile_grid_num,
             thickness,
@@ -171,10 +167,10 @@ class SectionTest(TestCase):
         )
 
         sec.save(path=self.tmp_dir, overwrite=False)
-        assert exists(join(self.tmp_dir, sec.get_section_id(), "section.yaml"))
+        assert exists(join(self.tmp_dir, sec.get_name(), "section.yaml"))
 
         yaml = YAML(typ="rt")
-        with open(join(self.tmp_dir, sec.get_section_id(), "section.yaml")) as f:
+        with open(join(self.tmp_dir, sec.get_name(), "section.yaml")) as f:
             dict = yaml.load(f)
 
         assert dict["license"] == license
@@ -193,11 +189,9 @@ class SectionTest(TestCase):
             stitched=stitched,
             skip=skip,
             acquisition=acquisition,
-            details=join(".", sec.get_section_id(), "section.yaml"),
+            details=join(".", sec.get_name(), "section.yaml"),
         )
-        sec_loaded.load_from_yaml(
-            join(self.tmp_dir, sec.get_section_id(), "section.yaml")
-        )
+        sec_loaded.load_from_yaml(join(self.tmp_dir, sec.get_name(), "section.yaml"))
         assert sec_loaded.get_name() == name
         assert sec_loaded.get_license() == license
         assert sec_loaded.get_sample() == sample
@@ -254,9 +248,7 @@ class SectionTest(TestCase):
         self.assertRaises(FileExistsError, sec.save, path=self.tmp_dir, overwrite=False)
 
         sec.save(path=self.tmp_dir, overwrite=True)
-        sec_loaded.load_from_yaml(
-            join(self.tmp_dir, sec.get_section_id(), "section.yaml")
-        )
+        sec_loaded.load_from_yaml(join(self.tmp_dir, sec.get_name(), "section.yaml"))
 
         assert len(sec_loaded.tiles) == 1
         assert sec_loaded.get_tile(1).get_section() == sec_loaded
@@ -264,7 +256,7 @@ class SectionTest(TestCase):
 
     def test_add_tile(self):
         sec = Section(
-            "section_init", False, True, "run_0", None, 123, 1, 11.1, 3420, 4200, 200
+            None, "section_init", False, True, "run_0", 123, 1, 11.1, 3420, 4200, 200
         )
 
         tile = Tile(sec, 2, "/fake_path.tif", 1, 1, 11.0)
@@ -281,7 +273,7 @@ class SectionTest(TestCase):
 
     def test_tile_id_map(self):
         sec = Section(
-            "section_init", False, True, "run_0", None, 123, 1, 11.1, 3072, 2304, 200
+            None, "section_init", False, True, "run_0", 123, 1, 11.1, 3072, 2304, 200
         )
 
         Tile(

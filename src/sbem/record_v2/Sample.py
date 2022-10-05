@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 from ruyaml import YAML
 
 from sbem.record_v2.Info import Info
+from sbem.record_v2.Section import Section
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from typing import Dict
 
     from sbem.experiment.Experiment_v2 import Experiment
-    from sbem.record_v2.Section import Section
 
 
 class Sample(Info):
@@ -39,14 +39,20 @@ class Sample(Info):
         if section.get_sample() is None:
             section.set_sample(self)
         else:
-            assert section.get_sample() == self, "Tile belongs to another section."
-        self.sections[section.get_section_id()] = section
+            assert section.get_sample() == self, "Section belongs to another " "sample."
+        self.sections[section.get_name()] = section
 
-    def get_section(self, section_id: str) -> Section:
-        return self.sections[section_id]
+    def get_section(self, section_name: str) -> Section:
+        return self.sections[section_name]
 
     def get_documentation(self) -> str:
         return self._documentation
+
+    def get_description(self) -> str:
+        return self._description
+
+    def set_experiment(self, experiment):
+        self._experiment = experiment
 
     def get_experiment(self) -> Experiment:
         return self._experiment
@@ -55,21 +61,21 @@ class Sample(Info):
         return self._aligned_data
 
     def to_dict(self, section_to_subdir: bool = True) -> Dict:
-        sections = {}
+        sections = []
         for k in self.sections.keys():
             s = self.sections.get(k)
             sec_dict = {
                 "name": s.get_name(),
                 "acquisition": s.get_acquisition(),
                 "stitched": s.is_stitched(),
-                "skip": s.is_stitched(),
+                "skip": s.skip(),
             }
             if section_to_subdir:
-                sec_dict["details"] = join(".", s.get_section_id(), "sample.yaml")
+                sec_dict["details"] = join(s.get_name(), "section.yaml")
             else:
                 sec_dict["details"] = s.to_dict()
 
-            sections[s.get_section_id()] = sec_dict
+            sections.append(sec_dict)
 
         return {
             "name": self.get_name(),
@@ -82,9 +88,8 @@ class Sample(Info):
         }
 
     def _save_sections(self, root: str, sec_dicts: Dict, overwrite: bool = False):
-        for key in sec_dicts:
-            s = self.sections.get(key)
-            os.makedirs(root, exist_ok=overwrite)
+        for sec_dict in sec_dicts:
+            s = self.sections.get(sec_dict["name"])
             s.save(root, overwrite=overwrite)
 
     def _dump(self, path: str, overwrite: bool = False, section_to_subdir: bool = True):
@@ -93,7 +98,9 @@ class Sample(Info):
         with open(join(path, "sample.yaml"), "w") as f:
             yaml.dump(data, f)
 
-        if isinstance(list(data["sections"].values())[0]["details"], str):
+        if len(data["sections"]) > 0 and isinstance(
+            data["sections"][0]["details"], str
+        ):
             self._save_sections(path, data["sections"], overwrite=overwrite)
 
     def save(self, path: str, overwrite: bool = False, section_to_subdir: bool = True):
@@ -110,3 +117,24 @@ class Sample(Info):
                     overwrite=overwrite,
                     section_to_subdir=section_to_subdir,
                 )
+
+    @staticmethod
+    def load(path: str) -> Sample:
+        yaml = YAML(typ="rt")
+        with open(path) as f:
+            data = yaml.load(f)
+
+        sample = Sample(
+            experiment=None,
+            name=data["name"],
+            description=data["description"],
+            documentation=data["documentation"],
+            aligned_data=data["aligned_data"],
+            license=data["license"],
+        )
+
+        for sec_dict in data["sections"]:
+            sec = Section.lazy_loading(**sec_dict)
+            sample.add_section(sec)
+
+        return sample

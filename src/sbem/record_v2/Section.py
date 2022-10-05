@@ -12,7 +12,7 @@ from ruyaml import YAML
 from sbem.record_v2.Info import Info
 from sbem.record_v2.Tile import Tile
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from typing import Dict
 
     from sbem.record_v2.Sample import Sample
@@ -21,11 +21,11 @@ if TYPE_CHECKING:
 class Section(Info):
     def __init__(
         self,
+        sample: Sample,
         name: str,
         stitched: bool,
         skip: bool,
         acquisition: str,
-        sample: Sample,
         section_num: int,
         tile_grid_num: int,
         thickness: float,
@@ -171,47 +171,79 @@ class Section(Info):
             # Just compute
             return self._compute_tile_id_map()
 
-    @_Decorator.is_initialized
     def to_dict(self) -> Dict:
-        tiles = []
-        for k in self.tiles.keys():
-            t = self.tiles.get(k)
-            tiles.append(t.to_dict())
+        if self._fully_initialized:
+            tiles = []
+            for t in self.tiles.values():
+                tiles.append(t.to_dict())
 
-        return {
-            "license": self.get_license(),
-            "format_version": self.get_format_version(),
-            "section_num": self._section_num,
-            "tile_grid_num": self._tile_grid_num,
-            "thickness": self._thickness,
-            "tile_height": self._tile_height,
-            "tile_width": self._tile_width,
-            "tile_overlap": self._tile_overlap,
-            "tiles": tiles,
-        }
-
-    @_Decorator.is_initialized
-    def get_section_id(self) -> str:
-        return f"s{self.get_section_num()}_g{self._tile_grid_num}"
+            return {
+                "license": self.get_license(),
+                "format_version": self.get_format_version(),
+                "section_num": self._section_num,
+                "tile_grid_num": self._tile_grid_num,
+                "thickness": self._thickness,
+                "tile_height": self._tile_height,
+                "tile_width": self._tile_width,
+                "tile_overlap": self._tile_overlap,
+                "tiles": tiles,
+            }
+        else:
+            return {
+                "license": None,
+                "format_version": self.get_format_version(),
+                "section_num": None,
+                "tile_grid_num": None,
+                "thickness": None,
+                "tile_height": None,
+                "tile_width": None,
+                "tile_overlap": None,
+                "tiles": [],
+            }
 
     def _dump(self, path: str):
         yaml = YAML(typ="rt")
         with open(join(path, "section.yaml"), "w") as f:
             yaml.dump(self.to_dict(), f)
 
-    @_Decorator.is_initialized
     def save(self, path: str, overwrite: bool = False):
-        out_path = join(path, self.get_section_id())
+        out_path = join(path, self.get_name())
         if not exists(out_path):
             os.makedirs(out_path, exist_ok=True)
             self._dump(path=out_path)
         else:
             if overwrite:
-                self._dump(path=out_path)
+                if self._fully_initialized:
+                    self._dump(path=out_path)
             else:
                 raise FileExistsError()
 
-    def load_from_yaml(self, path):
+    def get_section_dir(self):
+        sample_exists = self.get_sample() is not None
+        exp_exists = self.get_sample().get_experiment() is not None
+        if sample_exists and exp_exists:
+            return join(
+                self.get_sample().get_experiment().get_root_dir(),
+                self.get_sample().get_experiment().get_name(),
+                self.get_sample().get_name(),
+                self.get_name(),
+            )
+        else:
+            return None
+
+    def load_from_yaml(self, path: str = None):
+        if path is None:
+            sample_exists = self.get_sample() is not None
+            exp_exists = self.get_sample().get_experiment() is not None
+            if sample_exists and exp_exists:
+                path = join(
+                    self.get_sample().get_experiment().get_root_dir(),
+                    self.get_sample().get_experiment().get_name(),
+                    self.get_sample().get_name(),
+                    self.get_name(),
+                    "section.yaml",
+                )
+
         if path is not None:
             yaml = YAML(typ="rt")
             with open(path) as f:

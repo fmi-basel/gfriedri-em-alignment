@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from tifffile import imread
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from typing import Dict
 
     from numpy.typing import ArrayLike
