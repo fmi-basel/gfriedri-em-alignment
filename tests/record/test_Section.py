@@ -67,6 +67,7 @@ class SectionTest(TestCase):
         assert sec.get_tile_id_map() is None
         assert len(sec.tiles) == 0
         assert sec._fully_initialized
+        assert sec.get_tile("tile") is None
 
     def test_partial_init(self):
         name = "section_init"

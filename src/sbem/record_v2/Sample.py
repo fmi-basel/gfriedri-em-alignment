@@ -43,7 +43,10 @@ class Sample(Info):
         self.sections[section.get_name()] = section
 
     def get_section(self, section_name: str) -> Section:
-        return self.sections[section_name]
+        if section_name in self.sections.keys():
+            return self.sections[section_name]
+        else:
+            return None
 
     def get_documentation(self) -> str:
         return self._documentation

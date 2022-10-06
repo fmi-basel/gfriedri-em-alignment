@@ -74,7 +74,10 @@ class Section(Info):
 
     @_Decorator.is_initialized
     def get_tile(self, tile_id: int):
-        return self.tiles[tile_id]
+        if tile_id in self.tiles.keys():
+            return self.tiles[tile_id]
+        else:
+            return None
 
     def get_section_num(self) -> int:
         return self._section_num
@@ -151,7 +154,7 @@ class Section(Info):
         return np.array(tile_id_map)
 
     @_Decorator.is_initialized
-    def get_tile_id_map(self, path=None) -> ArrayLike:
+    def get_tile_id_map(self, path: str = None) -> ArrayLike:
         if path is not None and exists(path):
             # Load from disk
             with open(path) as f:

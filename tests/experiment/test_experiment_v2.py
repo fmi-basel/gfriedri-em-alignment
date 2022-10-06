@@ -56,6 +56,7 @@ class ExperimentTest(TestCase):
         )
         assert exp.get_citations_pretty() == "text\nDOI: doi\nURL: url"
         assert exp.get_root_dir() == root_dir
+        assert exp.get_sample("sample") is None
 
         dict = exp.to_dict()
         assert dict["name"] == name

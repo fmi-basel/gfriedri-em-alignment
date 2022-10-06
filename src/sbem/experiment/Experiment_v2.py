@@ -25,7 +25,7 @@ class Experiment(Info):
         root_dir: str,
         exist_ok: bool = False,
         license: str = "Creative Commons Attribution licence (CC " "BY)",
-        cite: List[Citation] = None,
+        cite: List[Citation] = [],
     ):
         super().__init__(name=name, license=license)
         self._description = description
@@ -48,7 +48,10 @@ class Experiment(Info):
         self._samples[sample.get_name()] = sample
 
     def get_sample(self, name: str) -> Sample:
-        return self._samples[name]
+        if name in self._samples.keys():
+            return self._samples[name]
+        else:
+            return None
 
     def get_description(self) -> str:
         return self._description

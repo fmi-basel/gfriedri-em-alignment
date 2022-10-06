@@ -45,6 +45,8 @@ class SectionTest(TestCase):
             experiment, name, description, documentation, aligned_data, license
         )
 
+        assert sample.get_section("sec") is None
+
         section = Section.lazy_loading(
             "sec", 123, 1, False, True, "run0", "details.yaml"
         )
