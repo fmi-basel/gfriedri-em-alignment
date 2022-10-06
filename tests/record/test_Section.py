@@ -82,18 +82,24 @@ class SectionTest(TestCase):
         tile_overlap = 200
         license = "Fake license."
         sec = Section.lazy_loading(
-            name, stitched, skip, acquisition, "./section_00/sample.yaml"
+            name,
+            section_num,
+            tile_grid_num,
+            stitched,
+            skip,
+            acquisition,
+            "./section_00/sample.yaml",
         )
 
         assert not sec._fully_initialized
         assert sec.get_name() == name
+        assert sec.get_section_num() == section_num
+        assert sec.get_tile_grid_num() == tile_grid_num
         assert sec.is_stitched() == stitched
         assert sec.skip() == skip
         assert sec.get_acquisition() == acquisition
         self.assertRaises(RuntimeError, sec.add_tile)
         self.assertRaises(RuntimeError, sec.get_tile)
-        self.assertRaises(RuntimeError, sec.get_section_num)
-        self.assertRaises(RuntimeError, sec.get_tile_grid_num)
         self.assertRaises(RuntimeError, sec.get_thickness)
         self.assertRaises(RuntimeError, sec.get_tile_height)
         self.assertRaises(RuntimeError, sec.get_tile_width)
@@ -112,8 +118,6 @@ class SectionTest(TestCase):
         details = {
             "format_version": "0.1.0",
             "license": license,
-            "section_num": section_num,
-            "tile_grid_num": tile_grid_num,
             "thickness": thickness,
             "tile_height": tile_height,
             "tile_width": tile_width,
@@ -175,8 +179,6 @@ class SectionTest(TestCase):
 
         assert dict["license"] == license
         assert dict["format_version"] == "0.1.0"
-        assert dict["section_num"] == section_num
-        assert dict["tile_grid_num"] == tile_grid_num
         assert dict["thickness"] == thickness
         assert dict["tile_height"] == tile_height
         assert dict["tile_width"] == tile_width
@@ -186,6 +188,8 @@ class SectionTest(TestCase):
         # details in dedicated section.yaml
         sec_loaded = Section.lazy_loading(
             name=name,
+            section_num=section_num,
+            tile_grid_num=tile_grid_num,
             stitched=stitched,
             skip=skip,
             acquisition=acquisition,
@@ -211,6 +215,8 @@ class SectionTest(TestCase):
         # section details provided as dict.
         sec_loaded = Section.lazy_loading(
             name=name,
+            section_num=section_num,
+            tile_grid_num=tile_grid_num,
             stitched=stitched,
             skip=skip,
             acquisition=acquisition,

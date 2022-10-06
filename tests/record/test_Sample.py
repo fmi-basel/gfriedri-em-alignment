@@ -45,7 +45,9 @@ class SectionTest(TestCase):
             experiment, name, description, documentation, aligned_data, license
         )
 
-        section = Section.lazy_loading("sec", False, True, "run0", "details.yaml")
+        section = Section.lazy_loading(
+            "sec", 123, 1, False, True, "run0", "details.yaml"
+        )
 
         sample_1.add_section(section)
         assert section.get_sample() == sample_1
@@ -67,6 +69,8 @@ class SectionTest(TestCase):
         assert sample_1_dict["sections"] == [
             {
                 "name": "sec",
+                "section_num": 123,
+                "tile_grid_num": 1,
                 "acquisition": "run0",
                 "stitched": False,
                 "skip": True,
@@ -78,6 +82,8 @@ class SectionTest(TestCase):
         assert sample_1_dict["sections"] == [
             {
                 "name": "sec",
+                "section_num": 123,
+                "tile_grid_num": 1,
                 "acquisition": "run0",
                 "stitched": False,
                 "skip": True,
@@ -97,7 +103,9 @@ class SectionTest(TestCase):
             experiment, name, description, documentation, aligned_data, license
         )
 
-        section = Section.lazy_loading("sec", False, True, "run0", "details.yaml")
+        section = Section.lazy_loading(
+            "sec", 123, 1, False, True, "run0", "details.yaml"
+        )
 
         sample.add_section(section)
 
@@ -117,6 +125,8 @@ class SectionTest(TestCase):
         assert dict["sections"] == [
             {
                 "name": "sec",
+                "section_num": 123,
+                "tile_grid_num": 1,
                 "acquisition": "run0",
                 "stitched": False,
                 "skip": True,
@@ -140,6 +150,8 @@ class SectionTest(TestCase):
         assert dict["sections"] == [
             {
                 "name": "sec",
+                "section_num": 123,
+                "tile_grid_num": 1,
                 "acquisition": "run0",
                 "stitched": False,
                 "skip": True,
@@ -162,6 +174,8 @@ class SectionTest(TestCase):
         assert dict["sections"] == [
             {
                 "name": "sec",
+                "section_num": 123,
+                "tile_grid_num": 1,
                 "acquisition": "run0",
                 "stitched": False,
                 "skip": True,

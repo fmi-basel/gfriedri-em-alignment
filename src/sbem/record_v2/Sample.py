@@ -66,6 +66,8 @@ class Sample(Info):
             s = self.sections.get(k)
             sec_dict = {
                 "name": s.get_name(),
+                "section_num": s.get_section_num(),
+                "tile_grid_num": s.get_tile_grid_num(),
                 "acquisition": s.get_acquisition(),
                 "stitched": s.is_stitched(),
                 "skip": s.skip(),

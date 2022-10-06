@@ -76,11 +76,9 @@ class Section(Info):
     def get_tile(self, tile_id: int):
         return self.tiles[tile_id]
 
-    @_Decorator.is_initialized
     def get_section_num(self) -> int:
         return self._section_num
 
-    @_Decorator.is_initialized
     def get_tile_grid_num(self) -> int:
         return self._tile_grid_num
 
@@ -180,8 +178,6 @@ class Section(Info):
             return {
                 "license": self.get_license(),
                 "format_version": self.get_format_version(),
-                "section_num": self._section_num,
-                "tile_grid_num": self._tile_grid_num,
                 "thickness": self._thickness,
                 "tile_height": self._tile_height,
                 "tile_width": self._tile_width,
@@ -192,8 +188,6 @@ class Section(Info):
             return {
                 "license": None,
                 "format_version": self.get_format_version(),
-                "section_num": None,
-                "tile_grid_num": None,
                 "thickness": None,
                 "tile_height": None,
                 "tile_width": None,
@@ -255,8 +249,6 @@ class Section(Info):
         assert self.get_format_version() == dict["format_version"]
 
         self._license = dict["license"]
-        self._section_num = dict["section_num"]
-        self._tile_grid_num = dict["tile_grid_num"]
         self._thickness = dict["thickness"]
         self._tile_height = dict["tile_height"]
         self._tile_width = dict["tile_width"]
@@ -278,6 +270,8 @@ class Section(Info):
     @staticmethod
     def lazy_loading(
         name: str,
+        section_num: int,
+        tile_grid_num: int,
         stitched: bool,
         skip: bool,
         acquisition: str,
@@ -289,8 +283,8 @@ class Section(Info):
             skip=skip,
             acquisition=acquisition,
             sample=None,
-            section_num=None,
-            tile_grid_num=None,
+            section_num=section_num,
+            tile_grid_num=tile_grid_num,
             thickness=None,
             tile_height=None,
             tile_width=None,
