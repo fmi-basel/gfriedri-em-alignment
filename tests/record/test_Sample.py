@@ -193,3 +193,215 @@ class SectionTest(TestCase):
         assert sample_loaded.get_license() == license
         assert sample_loaded.get_section("sec").to_dict() == section.to_dict()
         assert sample_loaded.get_section("sec").get_sample() == sample_loaded
+
+    def test_get_section_range(self):
+        sample = Sample(None, "sample", "Desc", "Docu", None)
+
+        sec_2 = Section(
+            sample=sample,
+            name="2",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=2,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_3 = Section(
+            sample=sample,
+            name="3",
+            stitched=False,
+            skip=True,
+            acquisition="run_0",
+            section_num=3,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="1",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=1,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_4 = Section(
+            sample=sample,
+            name="4",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=4,
+            tile_grid_num=2,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_5 = Section(
+            sample=sample,
+            name="5",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=5,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_range = sample.get_section_range(
+            start_section_num=2,
+            end_section_num=6,
+            tile_grid_num=1,
+            include_skipped=False,
+        )
+        assert len(sec_range) == 2
+        assert sec_range[0] == sec_2
+        assert sec_range[1] == sec_5
+
+        sec_range = sample.get_section_range(
+            start_section_num=2,
+            end_section_num=6,
+            tile_grid_num=1,
+            include_skipped=True,
+        )
+        assert len(sec_range) == 3
+        assert sec_range[0] == sec_2
+        assert sec_range[1] == sec_3
+        assert sec_range[2] == sec_5
+
+        sec_range = sample.get_section_range(
+            start_section_num=2,
+            end_section_num=5,
+            tile_grid_num=1,
+            include_skipped=True,
+        )
+        assert len(sec_range) == 2
+        assert sec_range[0] == sec_2
+        assert sec_range[1] == sec_3
+
+        sec_range = sample.get_section_range(
+            start_section_num=1,
+            end_section_num=5,
+            tile_grid_num=2,
+            include_skipped=True,
+        )
+        assert len(sec_range) == 1
+        assert sec_range[0] == sec_4
+
+    def test_get_sections_of_acquisition(self):
+        sample = Sample(None, "sample", "Desc", "Docu", None)
+
+        sec_2 = Section(
+            sample=sample,
+            name="2",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=2,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_3 = Section(
+            sample=sample,
+            name="3",
+            stitched=False,
+            skip=True,
+            acquisition="run_1",
+            section_num=3,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_1 = Section(
+            sample=sample,
+            name="1",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=1,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_4 = Section(
+            sample=sample,
+            name="4",
+            stitched=False,
+            skip=False,
+            acquisition="run_1",
+            section_num=4,
+            tile_grid_num=2,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_5 = Section(
+            sample=sample,
+            name="5",
+            stitched=False,
+            skip=False,
+            acquisition="run_1",
+            section_num=5,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sec_range = sample.get_sections_of_acquisition(
+            acquisition="run_0", tile_grid_num=1, include_skipped=False
+        )
+        assert len(sec_range) == 2
+        assert sec_range[0] == sec_1
+        assert sec_range[1] == sec_2
+
+        sec_range = sample.get_sections_of_acquisition(
+            acquisition="run_1", tile_grid_num=1, include_skipped=False
+        )
+        assert len(sec_range) == 1
+        assert sec_range[0] == sec_5
+
+        sec_range = sample.get_sections_of_acquisition(
+            acquisition="run_1", tile_grid_num=1, include_skipped=True
+        )
+        assert len(sec_range) == 2
+        assert sec_range[0] == sec_3
+        assert sec_range[1] == sec_5
+
+        sec_range = sample.get_sections_of_acquisition(
+            acquisition="run_1", tile_grid_num=2, include_skipped=True
+        )
+        assert len(sec_range) == 1
+        assert sec_range[0] == sec_4

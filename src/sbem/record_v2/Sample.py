@@ -60,6 +60,39 @@ class Sample(Info):
     def get_aligned_data(self):
         return self._aligned_data
 
+    def get_section_range(
+        self,
+        start_section_num: int,
+        end_section_num: int,
+        tile_grid_num: int,
+        include_skipped: bool = False,
+    ):
+        sections = []
+        for sec in self.sections.values():
+            above_start = sec.get_section_num() >= start_section_num
+            below_end = sec.get_section_num() < end_section_num
+            match_tile_grid = sec.get_tile_grid_num() == tile_grid_num
+            skip = sec.skip() if not include_skipped else False
+            if above_start and below_end and match_tile_grid and not skip:
+                sections.append(sec)
+
+        sections.sort(key=lambda s: s.get_section_num())
+        return sections
+
+    def get_sections_of_acquisition(
+        self, acquisition: str, tile_grid_num: int, include_skipped: bool = False
+    ):
+        sections = []
+        for sec in self.sections.values():
+            match = sec.get_acquisition() == acquisition
+            match_tile_grid = sec.get_tile_grid_num() == tile_grid_num
+            skip = sec.skip() if not include_skipped else False
+            if match and match_tile_grid and not skip:
+                sections.append(sec)
+
+        sections.sort(key=lambda s: s.get_section_num())
+        return sections
+
     def to_dict(self, section_to_subdir: bool = True) -> Dict:
         sections = []
         for k in self.sections.keys():
