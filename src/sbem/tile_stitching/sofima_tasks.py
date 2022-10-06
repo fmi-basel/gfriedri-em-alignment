@@ -1,17 +1,22 @@
-import prefect
 import traceback
+from os.path import join
+
+import prefect
 from prefect import task
 from sofima import mesh
 
-from sbem.experiment import Experiment
+from sbem.experiment.Experiment_v2 import Experiment
 from sbem.record.SectionRecord import SectionRecord
+from sbem.record_v2.Section import Section
 from sbem.tile_stitching.sofima_utils import (
-    default_mesh_integration_config, load_sections)
+    default_mesh_integration_config,
+    load_sections,
+)
 
 
 @task()
 def run_sofima(
-    section: SectionRecord,
+    section: Section,
     stride: int,
     overlaps_x: tuple,
     overlaps_y: tuple,
@@ -29,7 +34,12 @@ def run_sofima(
     n_workers=6,
 ):
     logger = prefect.context.get("logger")
-    logger.info(f"Compute mesh for section {section.save_dir}.")
+    sec_long_name = join(
+        section.get_sample().get_experiment().get_name(),
+        section.get_sample().get_name(),
+        section.get_name(),
+    )
+    logger.info(f"Compute mesh for section {sec_long_name}.")
 
     import os
 
@@ -59,7 +69,7 @@ def run_sofima(
         )
         return section
     except Exception as e:
-        print(f"Encounter error in section {section.save_dir}.")
+        print(f"Encounter error in section {sec_long_name}.")
         print(e)
         tb = traceback.format_exc()
         print(tb)
@@ -96,12 +106,13 @@ def run_warp_and_save(
 
 
 @task()
-def load_sections_task(**kwargs):
-    if "logger" not in kwargs:
-        kwargs["logger"]=prefect.context.get("load_sections")
+def load_experiment_task(exp_path: str):
+    return Experiment.load(path=exp_path)
 
-    sections = load_sections(**kwargs)
-    return sections
+
+@task()
+def load_sections_task(exp: Experiment, sample_name: str, tile_grid_num: int):
+    return load_sections(exp=exp, sample_name=sample_name, tile_grid_num=tile_grid_num)
 
 
 @task()

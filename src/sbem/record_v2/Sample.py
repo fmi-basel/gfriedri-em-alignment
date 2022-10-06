@@ -23,7 +23,7 @@ class Sample(Info):
         description: str,
         documentation: str,
         aligned_data: str,
-        license: str = "Creative Commons Attribution licence (CC " "BY)",
+        license: str = "Creative Commons Attribution licence (CC BY)",
     ):
         super().__init__(name=name, license=license)
         self._experiment = experiment
@@ -31,6 +31,8 @@ class Sample(Info):
         self._documentation = documentation
         self._aligned_data = aligned_data
         self.sections: Dict[str, Section] = {}
+        self._min_section_num = {}
+        self._max_section_num = {}
 
         if self._experiment is not None:
             self._experiment.add_sample(self)
@@ -41,12 +43,29 @@ class Sample(Info):
         else:
             assert section.get_sample() == self, "Section belongs to another " "sample."
         self.sections[section.get_name()] = section
+        grid_num = section.get_tile_grid_num()
+        if grid_num not in self._min_section_num.keys():
+            self._min_section_num[grid_num] = section.get_section_num()
+            self._max_section_num[grid_num] = section.get_section_num()
+        else:
+            if self._min_section_num[grid_num] > section.get_section_num():
+                self._min_section_num[grid_num] = section.get_section_num()
+            elif self._max_section_num[grid_num] < section.get_section_num():
+                self._max_section_num[grid_num] = section.get_section_num()
+            else:  # pragma: no cover
+                raise RuntimeError("This should never happen.")
 
     def get_section(self, section_name: str) -> Section:
         if section_name in self.sections.keys():
             return self.sections[section_name]
         else:
             return None
+
+    def get_min_section_num(self, tile_grid_num: int):
+        return self._min_section_num[tile_grid_num]
+
+    def get_max_section_num(self, tile_grid_num: int):
+        return self._max_section_num[tile_grid_num]
 
     def get_documentation(self) -> str:
         return self._documentation
@@ -73,7 +92,7 @@ class Sample(Info):
         sections = []
         for sec in self.sections.values():
             above_start = sec.get_section_num() >= start_section_num
-            below_end = sec.get_section_num() < end_section_num
+            below_end = sec.get_section_num() <= end_section_num
             match_tile_grid = sec.get_tile_grid_num() == tile_grid_num
             skip = sec.skip() if not include_skipped else False
             if above_start and below_end and match_tile_grid and not skip:

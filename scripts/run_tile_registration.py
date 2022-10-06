@@ -6,6 +6,7 @@ from prefect.executors import LocalDaskExecutor
 
 from sbem.tile_stitching.sofima_tasks import (
     build_integration_config,
+    load_experiment_task,
     load_sections_task,
     run_sofima,
 )
@@ -16,8 +17,9 @@ def config_to_dict(config):
     register_tiles = config["REGISTER_TILES"]
     mesh_conf = config["MESH_INTEGRATION_CONFIG"]
     kwargs = {
-        "sbem_experiment": default["sbem_experiment"],
-        "grid_index": int(default["grid_index"]),
+        "exp_path": default["exp_path"],
+        "sample_name": default["sample_name"],
+        "tile_grid_num": int(default["tile_grid_num"]),
         "batch_size": int(register_tiles["batch_size"]),
         "stride": int(register_tiles["stride"]),
         "overlaps_x": tuple(int(o) for o in register_tiles["overlaps_x"].split(",")),
@@ -47,24 +49,13 @@ def config_to_dict(config):
         "remove_drift": mesh_conf["remove_drift"] == "True",
     }
 
-    if "start_section" in register_tiles:
-        kwargs.update({"start_section": int(register_tiles["start_section"]),
-                      "end_section": int(register_tiles["end_section"])})
-    elif "section_num_list" in register_tiles:
-        section_list = list(int(x) for x in register_tiles["section_num_list"].split(","))
-        kwargs["section_num_list"] = section_list
-    else:
-        raise ValueError("Section range or section list not specified in config.")
-
     return kwargs
 
 
 with Flow("Tile-Stitching") as flow:
-    sbem_experiment = Parameter("sbem_experiment", default="SBEM")
-    start_section = Parameter("start_section", default=0)
-    end_section = Parameter("end_section", default=1)
-    section_num_list = Parameter("section_num_list", default=None)
-    grid_index = Parameter("grid_index", default=1)
+    exp_path = Parameter("exp_path", default="/path/to/experiment.yaml")
+    sample_name = Parameter("sample_name", default="Sample")
+    tile_grid_num = Parameter("tile_grid_num", default=1)
 
     dt = Parameter("dt", default=0.001)
     gamma = Parameter("gamma", default=0.0)
@@ -97,12 +88,13 @@ with Flow("Tile-Stitching") as flow:
 
     n_workers = Parameter("n_workers", default=6)
 
+    exp = load_experiment_task(exp_path=exp_path)
+
     sections = load_sections_task(
-        sbem_experiment=sbem_experiment,
-        grid_index=grid_index,
-        start_section=start_section,
-        end_section=end_section,
-        section_num_list=section_num_list)
+        exp_path=exp_path,
+        sample_name=sample_name,
+        tile_grid_num=tile_grid_num,
+    )
 
     integration_config = build_integration_config(
         dt=dt,

@@ -296,9 +296,10 @@ class SectionTest(TestCase):
             tile_grid_num=1,
             include_skipped=True,
         )
-        assert len(sec_range) == 2
+        assert len(sec_range) == 3
         assert sec_range[0] == sec_2
         assert sec_range[1] == sec_3
+        assert sec_range[2] == sec_5
 
         sec_range = sample.get_section_range(
             start_section_num=1,

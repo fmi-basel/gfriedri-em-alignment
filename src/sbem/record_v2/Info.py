@@ -2,7 +2,7 @@ class Info:
     def __init__(
         self,
         name: str,
-        license: str = "Creative Commons Attribution licence (CC " "BY)",
+        license: str = "Creative Commons Attribution licence (CC BY)",
     ):
         self._format_version = "0.1.0"
         self._name = name

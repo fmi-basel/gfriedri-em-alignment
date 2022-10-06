@@ -172,6 +172,24 @@ class Section(Info):
             # Just compute
             return self._compute_tile_id_map()
 
+    @_Decorator.is_initialized
+    def get_tile_data_map(self, path: str):
+        """
+        Get a tile-data-map mapping tile (x, y) coordinates to the loaded
+        image data.
+
+        :return: tile-data-map
+        """
+        tile_id_map = self.get_tile_id_map(path=path)
+        tile_data_map = {}
+        for y in range(tile_id_map.shape[0]):
+            for x in range(tile_id_map.shape[1]):
+                if tile_id_map[y, x] != -1:
+                    tile_data_map[(x, y)] = self.tiles[
+                        tile_id_map[y, x]
+                    ].get_tile_data()
+        return tile_data_map
+
     def to_dict(self) -> Dict:
         if self._fully_initialized:
             tiles = []
