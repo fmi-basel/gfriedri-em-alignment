@@ -6,7 +6,7 @@ import os
 from glob import glob
 from math import ceil
 from os.path import join, split
-from shutil import move
+from shutil import move, rmtree
 from typing import TYPE_CHECKING, Tuple
 
 import numpy as np
@@ -60,20 +60,41 @@ class Volume(Info):
 
         self.save()
 
+    def remove_section(self, section_num: int):
+        index = self._section_list.index(section_num)
+        dir_name = join(self.zarr_root.chunk_store.dir_path(), "0")
+        rmtree(join(dir_name, str(index)))
+        shape = self.zarr_root["0"].shape
+        new_shape = [shape[0] - 1, shape[1], shape[2]]
+        self.reshape_zlevel(new_shape, self.zarr_root["0"])
+        for z in range(index + 1, shape[0]):
+            src = join(dir_name, str(z))
+            dst = join(dir_name, str(z - 1))
+            move(src, dst)
+
+    def append_section(
+        self,
+        section_num: int,
+        data: ArrayLike,
+        relative_offsets: Tuple[int] = tuple([1, 0, 0]),
+    ):
+        # Need to store offsets of all sections relative to the first section
+        # Get offset of previous section and compute offset of this section
+        # Add offsets to section_list?
+        pass
+
     def write_section(
-        self, section_num: int, data: ArrayLike, offset: Tuple[int] = tuple([0, 0, 0])
+        self, section_num: int, data: ArrayLike, offsets: Tuple[int] = tuple([0, 0, 0])
     ):
         """
 
         :param section_num:
         :param data:
-        :param offset: With respect to top-most z-slices self._section_list[
+        :param offsets: With respect to top-most z-slices self._section_list[
         -1]
         :return:
         """
         # insert should be possible with moving dirs on filesystem
-        # remove should also work with moving dirs on filesystem
-        # resize multiscale by chunk-size only.
         if len(self._section_list) == 0:
             assert len(data.shape) == 3
             chunks = (1, 1000, 1000)
@@ -89,73 +110,14 @@ class Volume(Info):
                     overwrite=True,
                 ),
             )
-            self._section_list.append(section_num)
         else:
-            # scale_level = self.zarr_root.attrs["multiscales"][0][
-            #     "datasets"]
-            z_level = self.zarr_root[0]
-            chunk_size = z_level.chunks
-            print(f"chunk_size = {chunk_size}")
+            self._reshape_storage(offsets, data.shape)
 
-            slices = []
-            for i, (o, cs, current_shape, new_shape) in enumerate(
-                zip(offset, chunk_size, z_level.shape, data.shape)
-            ):
+            data = self._pad_data(offsets, data)
 
-                insert_start = o
-                if o < 0:
-                    n_chunks = o // cs
-                    self._extend(n_chunks=n_chunks, axis=i, z_level=z_level)
-                    insert_start = 0
+            slices = self._compute_slices(offsets, data.shape)
 
-                overhang = o + new_shape - current_shape
-                space_left = ceil(current_shape / cs) * cs - current_shape
-                print(f"overhang = {overhang}")
-                print(f"space_left = {space_left}")
-                if overhang > 0:
-                    if cs == 1:
-                        n_chunks = (overhang - space_left) // cs
-                    else:
-                        n_chunks = (overhang - space_left) // cs + 1
-                    print(f"Extend axis={i} by {n_chunks}.")
-                    self._extend(n_chunks=n_chunks, axis=i, z_level=z_level)
-
-                if o >= 0:
-                    insert_end = insert_start + new_shape
-                else:
-                    insert_end = insert_start + new_shape + cs + o
-                slices.append(slice(insert_start, insert_end))
-
-            print(slices)
-            print(data.shape)
-            print(z_level.shape)
-            new_shape = []
-            pad = []
-            for o, cs, ns, zs, s in zip(
-                offset, chunk_size, data.shape, z_level.shape, slices
-            ):
-                if o < 0:
-                    if zs >= s.stop:
-                        new_shape.append(zs + cs)  # multiply cs by
-                        # n_chunks
-                        pad.append([cs + o, 0])
-                    else:
-                        new_shape.append(cs + zs)
-                        pad.append([cs + o, 0])
-                else:
-                    if zs >= s.stop:
-                        new_shape.append(zs)
-                        pad.append([0, 0])
-                    else:
-                        new_shape.append(s.stop)
-                        pad.append([0, 0])
-
-            print(f"new_shape = {new_shape}")
-            self.reshape_zlevel(new_shape, z_level)
-            padded = np.pad(data, pad_width=pad)
-            print(f"padding = {pad}")
-            print(padded.shape)
-            z_level[tuple(slices)] = padded
+            self.zarr_root["0"][tuple(slices)] = data
 
         self._section_list.append(section_num)
 
@@ -252,3 +214,64 @@ class Volume(Info):
                 for d in data["cite"]
             ],
         )
+
+    def _reshape_storage(self, offsets, shape):
+        storage = self.zarr_root["0"]
+        new_shape = []
+        for i, (offset, chunk_size, storage_size, data_size) in enumerate(
+            zip(offsets, storage.chunks, storage.shape, shape)
+        ):
+            new_size = storage_size
+            # extend before
+            if offset < 0:
+                n_chunks = offset // chunk_size
+                self._extend(n_chunks=n_chunks, axis=i, z_level=storage)
+                new_size += abs(n_chunks) * chunk_size
+
+            overhang = offset + data_size - storage_size
+            total_chunk_space = ceil(storage_size / chunk_size) * chunk_size
+            remaining_space = total_chunk_space - storage_size
+
+            # extend after
+            if overhang > 0:
+                if chunk_size == 1:
+                    n_chunks = (overhang - remaining_space) // chunk_size
+                else:
+                    n_chunks = (overhang - remaining_space) // chunk_size + 1
+
+                self._extend(n_chunks=n_chunks, axis=i, z_level=storage)
+                new_size += overhang
+
+            new_shape.append(new_size)
+
+        if tuple(new_shape) != storage.shape:
+            print(f"new_shape = {new_shape}")
+            self.reshape_zlevel(new_shape, storage)
+
+    def _pad_data(self, offsets, data):
+        storage = self.zarr_root["0"]
+
+        padding = []
+        for i, (offset, chunk_size, storage_size, data_size) in enumerate(
+            zip(offsets, storage.chunks, storage.shape, data.shape)
+        ):
+            if offset < 0:
+                pad_before = chunk_size - (abs(offset) % chunk_size)
+                padding.append([pad_before, 0])
+            else:
+                padding.append([0, 0])
+
+        return np.pad(data, padding)
+
+    def _compute_slices(self, offsets, shape):
+        slices = []
+        print(shape)
+        for offset, size in zip(offsets, shape):
+            print(offset, size)
+            if offset < 0:
+                slices.append(slice(0, size))
+            else:
+                slices.append(slice(offset, offset + size))
+        print(slices)
+        print(self.zarr_root["0"].shape)
+        return slices
