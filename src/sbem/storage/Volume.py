@@ -181,7 +181,7 @@ class Volume(Info):
         self._section_list.insert(offsets[0], section_num)
         print(self._section_list)
         print(f"origin: {self._origin}")
-        self._section_offset_map[section_num] = offsets
+        self._section_offset_map[section_num] = np.array(offsets)
 
     def _extend(self, n_chunks, axis, z_level):
         if n_chunks < 0:
@@ -289,7 +289,7 @@ class Volume(Info):
                 n_chunks = offset // chunk_size
                 self._extend(n_chunks=n_chunks, axis=i, z_level=storage)
                 new_size += abs(n_chunks) * chunk_size
-                self._origin[i] += abs(n_chunks) * chunk_size
+                self._update_origin(axis=i, shift=abs(n_chunks) * chunk_size)
 
             overhang = offset + data_size - storage_size
             total_chunk_space = ceil(storage_size / chunk_size) * chunk_size
@@ -334,3 +334,14 @@ class Volume(Info):
             else:
                 slices.append(slice(offset, offset + size))
         return slices
+
+    def _update_origin(self, axis, shift):
+        self._origin[axis] += shift
+        for offsets in self._section_offset_map.values():
+            offsets[axis] += shift
+
+    def get_volume_origin(self):
+        return self._origin
+
+    def get_section_origin(self, section_num: int):
+        return self._origin + self._section_offset_map[section_num]
