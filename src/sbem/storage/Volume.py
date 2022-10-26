@@ -48,6 +48,8 @@ class Volume(Info):
         self.logger = logger
 
         self._section_list = []
+        self._section_offset_map = {}
+        self._origin = np.array([0, 0, 0], dtype=int)
 
         self._data_path = join(self._root_dir, self.get_name(), "ngff_volume.zarr")
 
@@ -65,12 +67,15 @@ class Volume(Info):
         dir_name = join(self.zarr_root.chunk_store.dir_path(), "0")
         rmtree(join(dir_name, str(index)))
         shape = self.zarr_root["0"].shape
-        new_shape = [shape[0] - 1, shape[1], shape[2]]
-        self.reshape_zlevel(new_shape, self.zarr_root["0"])
         for z in range(index + 1, shape[0]):
             src = join(dir_name, str(z))
             dst = join(dir_name, str(z - 1))
             move(src, dst)
+
+        new_shape = [shape[0] - 1, shape[1], shape[2]]
+        self.reshape_zlevel(new_shape, self.zarr_root["0"])
+        self._section_list.remove(section_num)
+        self._section_offset_map.pop(section_num)
 
     def append_section(
         self,
@@ -78,10 +83,38 @@ class Volume(Info):
         data: ArrayLike,
         relative_offsets: Tuple[int] = tuple([1, 0, 0]),
     ):
-        # Need to store offsets of all sections relative to the first section
-        # Get offset of previous section and compute offset of this section
-        # Add offsets to section_list?
-        pass
+        if len(self._section_list) == 0:
+            self.write_section(section_num=section_num, data=data)
+        else:
+            previous_offsets = self._section_offset_map[self._section_list[-1]]
+            total_offsets = tuple(
+                [
+                    previous_offsets[0] + relative_offsets[0],
+                    previous_offsets[1] + relative_offsets[1],
+                    previous_offsets[2] + relative_offsets[2],
+                ]
+            )
+            self.write_section(
+                section_num=section_num, data=data, offsets=total_offsets
+            )
+
+    def insert_section(
+        self, section_num: int, data: ArrayLike, offsets: Tuple[int] = tuple([0, 0, 0])
+    ):
+
+        assert offsets[0] >= 0, "Z offset has to be >= 0."
+
+        self.write_section(
+            section_num=section_num,
+            data=data,
+            offsets=tuple(
+                [
+                    int(self._origin[0]) + offsets[0],
+                    int(self._origin[1]) + offsets[1],
+                    int(self._origin[2]) + offsets[2],
+                ]
+            ),
+        )
 
     def write_section(
         self, section_num: int, data: ArrayLike, offsets: Tuple[int] = tuple([0, 0, 0])
@@ -90,10 +123,13 @@ class Volume(Info):
 
         :param section_num:
         :param data:
-        :param offsets: With respect to top-most z-slices self._section_list[
-        -1]
+        :param offsets: to volume origin
         :return:
         """
+        assert section_num not in self._section_list, (
+            f"Section " f"{section_num} exists already."
+        )
+        assert offsets[0] >= 0, "Z offset has to be >= 0."
         # insert should be possible with moving dirs on filesystem
         if len(self._section_list) == 0:
             assert len(data.shape) == 3
@@ -111,15 +147,41 @@ class Volume(Info):
                 ),
             )
         else:
-            self._reshape_storage(offsets, data.shape)
+            if offsets[0] >= len(self._section_list):
+                # append in Z
+                self._reshape_storage(offsets, data.shape)
 
-            data = self._pad_data(offsets, data)
+                data = self._pad_data(offsets, data)
 
-            slices = self._compute_slices(offsets, data.shape)
+                slices = self._compute_slices(offsets, data.shape)
 
-            self.zarr_root["0"][tuple(slices)] = data
+                self.zarr_root["0"][tuple(slices)] = data
+            else:
+                # insert into stack
+                self._reshape_storage(
+                    offsets=tuple([len(self._section_list), offsets[1], offsets[2]]),
+                    shape=data.shape,
+                )
 
-        self._section_list.append(section_num)
+                data = self._pad_data(offsets, data)
+
+                slices = self._compute_slices(offsets, data.shape)
+
+                # move slices above
+                print(len(self._section_list))
+                for z in range(len(self._section_list), offsets[0], -1):
+                    print(z)
+                    src = join(self.zarr_root.chunk_store.dir_path(), "0", str(z - 1))
+                    dst = join(self.zarr_root.chunk_store.dir_path(), "0", str(z))
+                    print(src, dst)
+                    move(src, dst)
+
+                self.zarr_root["0"][tuple(slices)] = data
+
+        self._section_list.insert(offsets[0], section_num)
+        print(self._section_list)
+        print(f"origin: {self._origin}")
+        self._section_offset_map[section_num] = offsets
 
     def _extend(self, n_chunks, axis, z_level):
         if n_chunks < 0:
@@ -227,6 +289,7 @@ class Volume(Info):
                 n_chunks = offset // chunk_size
                 self._extend(n_chunks=n_chunks, axis=i, z_level=storage)
                 new_size += abs(n_chunks) * chunk_size
+                self._origin[i] += abs(n_chunks) * chunk_size
 
             overhang = offset + data_size - storage_size
             total_chunk_space = ceil(storage_size / chunk_size) * chunk_size
@@ -265,13 +328,9 @@ class Volume(Info):
 
     def _compute_slices(self, offsets, shape):
         slices = []
-        print(shape)
         for offset, size in zip(offsets, shape):
-            print(offset, size)
             if offset < 0:
                 slices.append(slice(0, size))
             else:
                 slices.append(slice(offset, offset + size))
-        print(slices)
-        print(self.zarr_root["0"].shape)
         return slices
