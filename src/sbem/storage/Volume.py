@@ -169,12 +169,9 @@ class Volume(ReferenceMixin, Info):
 
                 self.zarr_root["0"][tuple(slices)] = data
 
-        print(offsets[0])
         for i in range(len(self._section_list), offsets[0]):
             self._section_list.insert(i, None)
         self._section_list.insert(offsets[0], section_num)
-        print(self._section_list)
-        print(f"origin: {self._origin}")
 
     def _extend(self, n_chunks, axis, z_level):
         if n_chunks < 0:
@@ -309,7 +306,6 @@ class Volume(ReferenceMixin, Info):
             new_shape.append(new_size)
 
         if tuple(new_shape) != storage.shape:
-            print(f"new_shape = {new_shape}")
             self._reshape_multiscale_level(new_shape, storage)
 
     def _pad_data(self, offsets, data):
