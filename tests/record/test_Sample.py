@@ -53,7 +53,9 @@ class SectionTest(TestCase):
 
         sample_1.add_section(section)
         assert section.get_sample() == sample_1
-        assert sample_1.get_section("sec")
+        assert sample_1.get_section("sec") == section
+        assert sample_1.get_min_section_num(1) == 123
+        assert sample_1.get_max_section_num(1) == 123
         section.set_sample(sample_1)
 
         self.assertRaises(AssertionError, sample.add_section, section=section)

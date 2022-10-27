@@ -14,12 +14,12 @@ class Citation:
         return self._url
 
     def to_pretty_str(self) -> str:
-        pretty = self._text
-        if self._doi is not None:
-            pretty = pretty + "\n" + f"DOI: {self._doi}"
+        pretty = self.get_text()
+        if self.get_doi() is not None:
+            pretty = pretty + "\n" + f"DOI: {self.get_doi()}"
 
-        if self._url is not None:
-            pretty = pretty + "\n" + f"URL: {self._url}"
+        if self.get_url() is not None:
+            pretty = pretty + "\n" + f"URL: {self.get_url()}"
 
         return pretty
 

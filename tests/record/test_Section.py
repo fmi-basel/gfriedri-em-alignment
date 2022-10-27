@@ -7,7 +7,7 @@ from unittest import TestCase
 import numpy as np
 from numpy.testing import assert_array_equal
 from ruyaml import YAML
-from tifffile import imsave
+from tifffile import imsave, imwrite
 
 from sbem.record_v2.Section import Section
 from sbem.record_v2.Tile import Tile
@@ -347,3 +347,65 @@ class SectionTest(TestCase):
         assert tile_id_map[0, 1] == 4
         assert tile_id_map[1, 0] == 5
         assert tile_id_map[1, 1] == 6
+
+    def test_get_tile_data_map(self):
+        sec = Section(
+            None, "section_init", False, True, "run_0", 123, 1, 11.1, 3072, 2304, 200
+        )
+
+        path = join(self.tmp_dir, "tile3.tif")
+        t3 = np.random.randint(0, 255, (3072, 2304))
+        imwrite(path, t3)
+        Tile(
+            sec,
+            path=path,
+            tile_id=3,
+            stage_x=0,
+            stage_y=0,
+            resolution_xy=1.2,
+        )
+        path = join(self.tmp_dir, "tile4.tif")
+        t4 = np.random.randint(0, 255, (3072, 2304))
+        imwrite(path, t4)
+        Tile(
+            sec,
+            path=path,
+            tile_id=4,
+            stage_x=2104,
+            stage_y=0,
+            resolution_xy=1.2,
+        )
+        path = join(self.tmp_dir, "tile5.tif")
+        t5 = np.random.randint(0, 255, (3072, 2304))
+        imwrite(path, t5)
+        Tile(
+            sec,
+            path=path,
+            tile_id=5,
+            stage_x=0,
+            stage_y=2872,
+            resolution_xy=1.2,
+        )
+        path = join(self.tmp_dir, "tile6.tif")
+        t6 = np.random.randint(0, 255, (3072, 2304))
+        imwrite(path, t6)
+        Tile(
+            sec,
+            path=path,
+            tile_id=6,
+            stage_x=2104,
+            stage_y=2872,
+            resolution_xy=1.2,
+        )
+
+        tdm = sec.get_tile_data_map(indexing="yx")
+        assert_array_equal(tdm[(0, 0)], t3)
+        assert_array_equal(tdm[(0, 1)], t4)
+        assert_array_equal(tdm[(1, 0)], t5)
+        assert_array_equal(tdm[(1, 1)], t6)
+
+        tdm = sec.get_tile_data_map(indexing="xy")
+        assert_array_equal(tdm[(0, 0)], t3)
+        assert_array_equal(tdm[(1, 0)], t4)
+        assert_array_equal(tdm[(0, 1)], t5)
+        assert_array_equal(tdm[(1, 1)], t6)

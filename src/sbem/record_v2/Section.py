@@ -173,21 +173,24 @@ class Section(Info):
             return self._compute_tile_id_map()
 
     @_Decorator.is_initialized
-    def get_tile_data_map(self, path: str):
+    def get_tile_data_map(self, path: str = None, indexing="yx"):
         """
         Get a tile-data-map mapping tile (x, y) coordinates to the loaded
         image data.
 
         :return: tile-data-map
         """
+        assert indexing == "xy" or indexing == "yx"
         tile_id_map = self.get_tile_id_map(path=path)
         tile_data_map = {}
         for y in range(tile_id_map.shape[0]):
             for x in range(tile_id_map.shape[1]):
                 if tile_id_map[y, x] != -1:
-                    tile_data_map[(x, y)] = self.tiles[
-                        tile_id_map[y, x]
-                    ].get_tile_data()
+                    data = self.tiles[tile_id_map[y, x]].get_tile_data()
+                    if indexing == "xy":
+                        tile_data_map[(x, y)] = data
+                    else:
+                        tile_data_map[(y, x)] = data
         return tile_data_map
 
     def to_dict(self) -> Dict:

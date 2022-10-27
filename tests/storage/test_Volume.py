@@ -366,19 +366,19 @@ class VolumeTest(TestCase):
         data1 = np.random.randint(0, 255, size=(1, 123, 342))
         vol.write_section(124, data1, (1, 0, 0))
         data2 = np.random.randint(0, 255, size=(1, 123, 342))
-        vol.write_section(125, data2, (2, 0, 0))
+        vol.write_section(125, data2, (3, 0, 0))
 
         # Remove center section
         vol.remove_section(124)
         assert not exists(
             join(self.tmp_dir, "test-volume", "ngff_volume.zarr", "0", "3")
         )
-        assert vol._section_list == [123, 125]
+        assert vol._section_list == [123, None, 125]
         assert 124 not in vol._section_offset_map.keys()
         assert 124 not in vol._section_shape_map.keys()
         assert_array_equal(vol.get_section_origin(123), np.array([0, 0, 0]))
-        assert_array_equal(vol.get_section_origin(125), np.array([1, 0, 0]))
-        assert vol.get_zarr_volume()["0"].shape == (2, 123, 342)
+        assert_array_equal(vol.get_section_origin(125), np.array([2, 0, 0]))
+        assert vol.get_zarr_volume()["0"].shape == (3, 123, 342)
 
         assert_array_equal(vol.get_section_data(123), data)
         assert_array_equal(vol.get_section_data(125), data2)
@@ -418,6 +418,7 @@ class VolumeTest(TestCase):
         assert_array_equal(vol.get_section_data(123), data)
         assert 123 in vol._section_offset_map.keys()
         assert 123 in vol._section_shape_map.keys()
+
         assert exists(
             join(self.tmp_dir, "test-volume", "ngff_volume.zarr", "0", "1", "0", "0")
         )
@@ -428,3 +429,104 @@ class VolumeTest(TestCase):
         assert vol._section_list == [123, 124]
         assert 124 in vol._section_offset_map.keys()
         assert 124 in vol._section_shape_map.keys()
+        assert_array_equal(vol.get_origin(), np.array([0, 0, 2744]))
+
+        # Add 3rd section with positive offset
+        # Append inserts with the offset relative to the previous section
+        data2 = np.random.randint(0, 255, size=(1, 123, 342))
+        vol.append_section(125, data2, (1, 0, 100))
+
+        assert exists(
+            join(self.tmp_dir, "test-volume", "ngff_volume.zarr", "0", "0", "0", "1")
+        )
+        assert_array_equal(vol.get_section_data(123), data)
+        assert 123 in vol._section_offset_map.keys()
+        assert 123 in vol._section_shape_map.keys()
+        assert exists(
+            join(self.tmp_dir, "test-volume", "ngff_volume.zarr", "0", "1", "0", "0")
+        )
+        assert exists(
+            join(self.tmp_dir, "test-volume", "ngff_volume.zarr", "0", "1", "0", "1")
+        )
+        assert_array_equal(vol.get_section_data(124), data1)
+        assert 124 in vol._section_offset_map.keys()
+        assert 124 in vol._section_shape_map.keys()
+
+        assert exists(
+            join(self.tmp_dir, "test-volume", "ngff_volume.zarr", "0", "2", "0", "1")
+        )
+        assert_array_equal(vol.get_section_data(125), data2)
+        assert_array_equal(
+            vol.get_zarr_volume()[0][2, :123, 2744 : 2744 + 342], data2[0]
+        )
+        assert vol._section_list == [123, 124, 125]
+        assert 125 in vol._section_offset_map.keys()
+        assert 125 in vol._section_shape_map.keys()
+
+    def test_save_and_load(self):
+        vol = Volume(
+            name="test-volume",
+            description="description",
+            documentation="documentation",
+            authors=[Author(name="author 1", affiliation="aff 1")],
+            root_dir=self.tmp_dir,
+            exist_ok=False,
+            license="license",
+            cite=[Citation(doi="doi", text="text", url="url")],
+            logger=logging,
+        )
+
+        # Add first section
+        data = np.random.randint(0, 255, size=(1, 123, 342))
+        vol.append_section(123, data, (0, 0, 0))
+        vol.save()
+
+        vol_load = Volume.load(join(self.tmp_dir, "test-volume", "volume.yaml"))
+        assert vol.get_name() == vol_load.get_name()
+        assert vol.get_license() == vol_load.get_license()
+        assert vol.get_description() == vol_load.get_description()
+        assert vol.get_documentation() == vol_load.get_documentation()
+        assert vol.get_authors_pretty() == vol_load.get_authors_pretty()
+        assert vol.get_citations_pretty() == vol_load.get_citations_pretty()
+        assert vol.get_dir() == vol_load.get_dir()
+        assert_array_equal(vol.get_origin(), vol_load.get_origin())
+        vol_store_path = vol.get_zarr_volume().chunk_store.dir_path()
+        vol_load_store_path = vol_load.get_zarr_volume().chunk_store.dir_path()
+        assert vol_store_path == vol_load_store_path
+        assert vol._section_list == vol_load._section_list
+        for k in vol._section_offset_map.keys():
+            assert_array_equal(
+                vol._section_offset_map[k], vol_load._section_offset_map[k]
+            )
+        for k in vol._section_shape_map.keys():
+            assert_array_equal(
+                vol._section_shape_map[k], vol_load._section_shape_map[k]
+            )
+
+        # Add 2nd section with negative offset
+        data1 = np.random.randint(0, 255, size=(1, 123, 342))
+        vol.append_section(124, data1, (1, 0, -100))
+
+        vol.save()
+
+        vol_load = Volume.load(join(self.tmp_dir, "test-volume", "volume.yaml"))
+        assert vol.get_name() == vol_load.get_name()
+        assert vol.get_license() == vol_load.get_license()
+        assert vol.get_description() == vol_load.get_description()
+        assert vol.get_documentation() == vol_load.get_documentation()
+        assert vol.get_authors_pretty() == vol_load.get_authors_pretty()
+        assert vol.get_citations_pretty() == vol_load.get_citations_pretty()
+        assert vol.get_dir() == vol_load.get_dir()
+        assert_array_equal(vol.get_origin(), vol_load.get_origin())
+        vol_store_path = vol.get_zarr_volume().chunk_store.dir_path()
+        vol_load_store_path = vol_load.get_zarr_volume().chunk_store.dir_path()
+        assert vol_store_path == vol_load_store_path
+        assert vol._section_list == vol_load._section_list
+        for k in vol._section_offset_map.keys():
+            assert_array_equal(
+                vol._section_offset_map[k], vol_load._section_offset_map[k]
+            )
+        for k in vol._section_shape_map.keys():
+            assert_array_equal(
+                vol._section_shape_map[k], vol_load._section_shape_map[k]
+            )

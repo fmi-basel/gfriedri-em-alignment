@@ -5,7 +5,7 @@ import logging
 import os
 from glob import glob
 from math import ceil
-from os.path import join, split
+from os.path import exists, join, split
 from shutil import move, rmtree
 from typing import TYPE_CHECKING, Tuple
 
@@ -23,7 +23,7 @@ from sbem.record_v2.Citation import Citation
 from sbem.record_v2.Info import Info
 from sbem.record_v2.ReferenceMixin import ReferenceMixin
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from typing import List
 
 
@@ -70,8 +70,9 @@ class Volume(ReferenceMixin, Info):
         for z in range(index + 1, shape[0]):
             src = join(dir_name, str(z))
             dst = join(dir_name, str(z - 1))
-            move(src, dst)
-            self._section_offset_map[self._section_list[z]][0] -= 1
+            if exists(src):
+                move(src, dst)
+                self._section_offset_map[self._section_list[z]][0] -= 1
 
         new_shape = [shape[0] - 1, shape[1], shape[2]]
         self._reshape_multiscale_level(new_shape, self.zarr_root["0"])
@@ -88,7 +89,12 @@ class Volume(ReferenceMixin, Info):
         if len(self._section_list) == 0:
             self.write_section(section_num=section_num, data=data)
         else:
-            previous_offsets = self._section_offset_map[self._section_list[-1]]
+            previous_section_num = None
+            i = -1
+            while previous_section_num is None:
+                previous_section_num = self._section_list[i]
+                i -= 1
+            previous_offsets = self._section_offset_map[previous_section_num]
             total_offsets = tuple(
                 [
                     int(previous_offsets[0] + relative_offsets[0]),
@@ -163,6 +169,9 @@ class Volume(ReferenceMixin, Info):
 
                 self.zarr_root["0"][tuple(slices)] = data
 
+        print(offsets[0])
+        for i in range(len(self._section_list), offsets[0]):
+            self._section_list.insert(i, None)
         self._section_list.insert(offsets[0], section_num)
         print(self._section_list)
         print(f"origin: {self._origin}")
@@ -227,6 +236,7 @@ class Volume(ReferenceMixin, Info):
             "data": self._data_path,
             "sections": self._section_list,
             "offsets": {k: v.tolist() for k, v in self._section_offset_map.items()},
+            "shapes": self._section_shape_map,
             "origin": [int(o) for o in self._origin],
         }
 
@@ -264,7 +274,9 @@ class Volume(ReferenceMixin, Info):
         )
         vol._section_list = data["sections"]
         vol._section_offset_map = data["offsets"]
+        vol._section_shape_map = data["shapes"]
         vol._origin = np.array(data["origin"])
+        return vol
 
     def _reshape_storage(self, offsets, shape):
         storage = self.zarr_root["0"]

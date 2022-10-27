@@ -69,7 +69,7 @@ def register_tiles(
         "tile_id_map.json",
     )
     tile_space = section.get_tile_id_map(path=tim_path).shape
-    tile_map = section.get_tile_data_map(path=tim_path)
+    tile_map = section.get_tile_data_map(path=tim_path, indexing="xy")
     cx, cy = stitch_rigid.compute_coarse_offsets(
         tile_space,
         tile_map,
