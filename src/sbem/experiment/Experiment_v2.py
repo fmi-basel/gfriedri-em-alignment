@@ -9,13 +9,14 @@ from ruyaml import YAML
 from sbem.record_v2.Author import Author
 from sbem.record_v2.Citation import Citation
 from sbem.record_v2.Info import Info
+from sbem.record_v2.ReferenceMixin import ReferenceMixin
 from sbem.record_v2.Sample import Sample
 
 if TYPE_CHECKING:  # pragma: no cover
     from typing import Dict, List
 
 
-class Experiment(Info):
+class Experiment(ReferenceMixin, Info):
     def __init__(
         self,
         name: str,
@@ -27,12 +28,10 @@ class Experiment(Info):
         license: str = "Creative Commons Attribution licence (CC " "BY)",
         cite: List[Citation] = [],
     ):
-        super().__init__(name=name, license=license)
+        super().__init__(name=name, license=license, authors=authors, cite=cite)
         self._description = description
         self._root_dir = root_dir
         self._documentation = documentation
-        self._authors: List[Author] = authors
-        self._cite: List[Citation] = cite
         self._samples: Dict[str, Sample] = {}
 
         if self._root_dir is not None:
@@ -61,31 +60,6 @@ class Experiment(Info):
 
     def get_root_dir(self) -> str:
         return self._root_dir
-
-    def get_authors_pretty(self) -> str:
-        affilitations = {}
-        for a in self._authors:
-            if not a.get_affiliation() in affilitations.keys():
-                idx = len(affilitations) + 1
-                affilitations[a.get_affiliation()] = idx
-
-        author_affiliation = []
-        for a in self._authors:
-            author_affiliation.append(
-                a.get_name() + f"[{affilitations.get(a.get_affiliation())}]"
-            )
-
-        pretty = ", ".join(author_affiliation)
-        pretty = pretty + "\n"
-
-        aff_index = [f"[{affilitations[a]}] {a}" for a in affilitations.keys()]
-        pretty = pretty + "\n".join(aff_index)
-
-        return pretty
-
-    def get_citations_pretty(self) -> str:
-        citations = [c.to_pretty_str() for c in self._cite]
-        return "\n\n".join(citations)
 
     def to_dict(self) -> Dict:
         samples = []

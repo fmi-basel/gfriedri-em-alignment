@@ -21,12 +21,13 @@ from ruyaml import YAML
 from sbem.record_v2.Author import Author
 from sbem.record_v2.Citation import Citation
 from sbem.record_v2.Info import Info
+from sbem.record_v2.ReferenceMixin import ReferenceMixin
 
 if TYPE_CHECKING:
     from typing import List
 
 
-class Volume(Info):
+class Volume(ReferenceMixin, Info):
     def __init__(
         self,
         name: str,
@@ -39,16 +40,15 @@ class Volume(Info):
         cite: List[Citation] = [],
         logger=logging,
     ):
-        super().__init__(name=name, license=license)
+        super().__init__(name=name, license=license, authors=authors, cite=cite)
         self._description = description
         self._documentation = documentation
-        self._authors = authors
         self._root_dir = root_dir
-        self._cite = cite
         self.logger = logger
 
         self._section_list = []
         self._section_offset_map = {}
+        self._section_shape_map = {}
         self._origin = np.array([0, 0, 0], dtype=int)
 
         self._data_path = join(self._root_dir, self.get_name(), "ngff_volume.zarr")
@@ -71,17 +71,19 @@ class Volume(Info):
             src = join(dir_name, str(z))
             dst = join(dir_name, str(z - 1))
             move(src, dst)
+            self._section_offset_map[self._section_list[z]][0] -= 1
 
         new_shape = [shape[0] - 1, shape[1], shape[2]]
-        self.reshape_zlevel(new_shape, self.zarr_root["0"])
+        self._reshape_multiscale_level(new_shape, self.zarr_root["0"])
         self._section_list.remove(section_num)
         self._section_offset_map.pop(section_num)
+        self._section_shape_map.pop(section_num)
 
     def append_section(
         self,
         section_num: int,
         data: ArrayLike,
-        relative_offsets: Tuple[int] = tuple([1, 0, 0]),
+        relative_offsets: Tuple[int, int, int] = tuple([1, 0, 0]),
     ):
         if len(self._section_list) == 0:
             self.write_section(section_num=section_num, data=data)
@@ -89,35 +91,20 @@ class Volume(Info):
             previous_offsets = self._section_offset_map[self._section_list[-1]]
             total_offsets = tuple(
                 [
-                    previous_offsets[0] + relative_offsets[0],
-                    previous_offsets[1] + relative_offsets[1],
-                    previous_offsets[2] + relative_offsets[2],
+                    int(previous_offsets[0] + relative_offsets[0]),
+                    int(previous_offsets[1] + relative_offsets[1]),
+                    int(previous_offsets[2] + relative_offsets[2]),
                 ]
             )
             self.write_section(
                 section_num=section_num, data=data, offsets=total_offsets
             )
 
-    def insert_section(
-        self, section_num: int, data: ArrayLike, offsets: Tuple[int] = tuple([0, 0, 0])
-    ):
-
-        assert offsets[0] >= 0, "Z offset has to be >= 0."
-
-        self.write_section(
-            section_num=section_num,
-            data=data,
-            offsets=tuple(
-                [
-                    int(self._origin[0]) + offsets[0],
-                    int(self._origin[1]) + offsets[1],
-                    int(self._origin[2]) + offsets[2],
-                ]
-            ),
-        )
-
     def write_section(
-        self, section_num: int, data: ArrayLike, offsets: Tuple[int] = tuple([0, 0, 0])
+        self,
+        section_num: int,
+        data: ArrayLike,
+        offsets: Tuple[int, int, int] = tuple([0, 0, 0]),
     ):
         """
 
@@ -130,18 +117,18 @@ class Volume(Info):
             f"Section " f"{section_num} exists already."
         )
         assert offsets[0] >= 0, "Z offset has to be >= 0."
+        self._section_offset_map[section_num] = np.array(offsets)
+        self._section_shape_map[section_num] = data.shape
         # insert should be possible with moving dirs on filesystem
         if len(self._section_list) == 0:
             assert len(data.shape) == 3
-            chunks = (1, 1000, 1000)
-            print(chunks)
             write_image(
                 image=data,
                 group=self.zarr_root,
                 scaler=self.scaler,
                 axes="zyx",
                 storage_options=dict(
-                    chunks=chunks,
+                    chunks=(1, 2744, 2744),
                     compressor=Blosc(cname="zstd", clevel=3, shuffle=Blosc.SHUFFLE),
                     overwrite=True,
                 ),
@@ -168,20 +155,17 @@ class Volume(Info):
                 slices = self._compute_slices(offsets, data.shape)
 
                 # move slices above
-                print(len(self._section_list))
                 for z in range(len(self._section_list), offsets[0], -1):
-                    print(z)
                     src = join(self.zarr_root.chunk_store.dir_path(), "0", str(z - 1))
                     dst = join(self.zarr_root.chunk_store.dir_path(), "0", str(z))
-                    print(src, dst)
                     move(src, dst)
+                    self._section_offset_map[self._section_list[z - 1]][0] += 1
 
                 self.zarr_root["0"][tuple(slices)] = data
 
         self._section_list.insert(offsets[0], section_num)
         print(self._section_list)
         print(f"origin: {self._origin}")
-        self._section_offset_map[section_num] = np.array(offsets)
 
     def _extend(self, n_chunks, axis, z_level):
         if n_chunks < 0:
@@ -216,15 +200,15 @@ class Volume(Info):
                 dir_name, chunk = split(c)
                 move(c, join(dir_name, str(int(chunk) + abs(n_chunks))))
 
-    def reshape_zlevel(self, new_shape, z_level):
+    def _reshape_multiscale_level(self, new_shape, level):
         with open(
-            join(self.zarr_root.chunk_store.dir_path(), z_level.basename, ".zarray"),
+            join(self.zarr_root.chunk_store.dir_path(), level.basename, ".zarray"),
         ) as f:
             array_dict = json.load(f)
-        z_level.shape = new_shape
+        level.shape = new_shape
         # Overwrite json otherwise "dimension_separator" gets dropped.
         with open(
-            join(self.zarr_root.chunk_store.dir_path(), z_level.basename, ".zarray"),
+            join(self.zarr_root.chunk_store.dir_path(), level.basename, ".zarray"),
             "w",
         ) as f:
             array_dict["shape"] = new_shape
@@ -242,6 +226,8 @@ class Volume(Info):
             "cite": [c.to_dict() for c in self._cite],
             "data": self._data_path,
             "sections": self._section_list,
+            "offsets": {k: v.tolist() for k, v in self._section_offset_map.items()},
+            "origin": [int(o) for o in self._origin],
         }
 
     def _dump(self, out_path: str):
@@ -260,7 +246,7 @@ class Volume(Info):
         with open(path) as f:
             data = yaml.load(f)
 
-        return Volume(
+        vol = Volume(
             name=data["name"],
             description=data["description"],
             documentation=data["documentation"],
@@ -276,6 +262,9 @@ class Volume(Info):
                 for d in data["cite"]
             ],
         )
+        vol._section_list = data["sections"]
+        vol._section_offset_map = data["offsets"]
+        vol._origin = np.array(data["origin"])
 
     def _reshape_storage(self, offsets, shape):
         storage = self.zarr_root["0"]
@@ -309,7 +298,7 @@ class Volume(Info):
 
         if tuple(new_shape) != storage.shape:
             print(f"new_shape = {new_shape}")
-            self.reshape_zlevel(new_shape, storage)
+            self._reshape_multiscale_level(new_shape, storage)
 
     def _pad_data(self, offsets, data):
         storage = self.zarr_root["0"]
@@ -340,8 +329,25 @@ class Volume(Info):
         for offsets in self._section_offset_map.values():
             offsets[axis] += shift
 
-    def get_volume_origin(self):
-        return self._origin
-
     def get_section_origin(self, section_num: int):
         return self._origin + self._section_offset_map[section_num]
+
+    def get_section_data(self, section_num: int):
+        z, y, x = self._section_offset_map[section_num]
+        zs, ys, xs = self._section_shape_map[section_num]
+        return self.get_zarr_volume()["0"][z : z + zs, y : y + ys, x : x + xs]
+
+    def get_description(self):
+        return self._description
+
+    def get_documentation(self):
+        return self._documentation
+
+    def get_dir(self):
+        return join(self._root_dir, self.get_name())
+
+    def get_origin(self):
+        return self._origin
+
+    def get_zarr_volume(self):
+        return self.zarr_root
