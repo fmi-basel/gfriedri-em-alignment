@@ -32,6 +32,7 @@ class Section(Info):
         tile_height: int,
         tile_width: int,
         tile_overlap: int,
+        alignment_mesh: str = None,
         license: str = "Creative Commons Attribution licence (CC " "BY)",
     ):
         super().__init__(name=name, license=license)
@@ -45,6 +46,7 @@ class Section(Info):
         self._tile_overlap = tile_overlap
         self._stitched = stitched
         self._skip = skip
+        self._alignment_mesh = alignment_mesh
         self.tiles: Dict[int, Tile] = {}
         self._fully_initialized = True
 
@@ -206,6 +208,7 @@ class Section(Info):
                 "tile_height": self._tile_height,
                 "tile_width": self._tile_width,
                 "tile_overlap": self._tile_overlap,
+                "alignment_mesh": self._alignment_mesh,
                 "tiles": tiles,
             }
         else:
@@ -216,6 +219,7 @@ class Section(Info):
                 "tile_height": None,
                 "tile_width": None,
                 "tile_overlap": None,
+                "alignment_mesh": None,
                 "tiles": [],
             }
 
@@ -277,6 +281,7 @@ class Section(Info):
         self._tile_height = dict["tile_height"]
         self._tile_width = dict["tile_width"]
         self._tile_overlap = dict["tile_overlap"]
+        self._alignment_mesh = dict["alignment_mesh"]
 
         self._fully_initialized = True
 
@@ -313,6 +318,7 @@ class Section(Info):
             tile_height=None,
             tile_width=None,
             tile_overlap=None,
+            alignment_mesh=None,
             license=None,
         )
 
@@ -322,3 +328,9 @@ class Section(Info):
             sec._load_details(details)
 
         return sec
+
+    def get_alignment_mesh(self) -> str:
+        return self._alignment_mesh
+
+    def set_alignment_mesh(self, path: str):
+        self._alignment_mesh = path

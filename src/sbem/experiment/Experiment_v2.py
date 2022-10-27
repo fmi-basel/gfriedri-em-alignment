@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import os
 from os.path import exists, join
 from typing import TYPE_CHECKING
 
+import git
+from git import Actor
 from ruyaml import YAML
 
 from sbem.record_v2.Author import Author
@@ -27,15 +30,26 @@ class Experiment(ReferenceMixin, Info):
         exist_ok: bool = False,
         license: str = "Creative Commons Attribution licence (CC " "BY)",
         cite: List[Citation] = [],
+        logger=logging,
     ):
         super().__init__(name=name, license=license, authors=authors, cite=cite)
         self._description = description
         self._root_dir = root_dir
         self._documentation = documentation
         self._samples: Dict[str, Sample] = {}
+        self._git_author = Actor("sbem.Experiment", "")
+        self.logger = logger
 
         if self._root_dir is not None:
             os.makedirs(self._root_dir, exist_ok=exist_ok)
+
+        if exists(join(self._root_dir, self.get_name(), ".git")):
+            with git.Repo(join(self._root_dir, self.get_name())) as r:
+                assert not r.is_dirty(), (
+                    "[git-error]: Resolve untracked "
+                    "changes before loading the "
+                    "experiment."
+                )
 
     def add_sample(self, sample: Sample):
         if sample.get_experiment() is None:
@@ -87,6 +101,11 @@ class Experiment(ReferenceMixin, Info):
         for s in self._samples.values():
             s.save(path, overwrite=overwrite, section_to_subdir=section_to_subdir)
 
+    def _init_git(self):
+        repo_dir = join(self._root_dir, self.get_name())
+        if not exists(join(repo_dir, ".git")):
+            git.Repo.init(repo_dir)
+
     def save(self, overwrite: bool = False, section_to_subdir: bool = True):
         out_path = join(self._root_dir, self.get_name())
         if not exists(out_path):
@@ -94,6 +113,7 @@ class Experiment(ReferenceMixin, Info):
             self._dump(
                 path=out_path, overwrite=overwrite, section_to_subdir=section_to_subdir
             )
+            self._init_git()
         else:
             if overwrite:
                 self._dump(
@@ -101,6 +121,7 @@ class Experiment(ReferenceMixin, Info):
                     overwrite=overwrite,
                     section_to_subdir=section_to_subdir,
                 )
+                self._init_git()
             else:
                 raise FileExistsError()
 
