@@ -7,8 +7,8 @@ from typing import Dict
 import git
 from prefect.flows import flow
 from prefect.logging import get_run_logger
-from prefect.task_runners import SequentialTaskRunner
 from prefect.tasks import task
+from prefect_dask import DaskTaskRunner
 
 from sbem.experiment.Experiment_v2 import Experiment
 from sbem.record_v2.Author import Author
@@ -62,11 +62,28 @@ def commit_changes(exp: Experiment):
         repo.index.commit("Create experiment.", author=exp._git_author)
 
 
-@flow(name="Create Experiment", task_runner=SequentialTaskRunner())
+@flow(
+    name="Create Experiment",
+    task_runner=DaskTaskRunner(
+        cluster_class="dask_jobqueue.SLURMCluster",
+        cluster_kwargs={
+            "account": "dlthings",
+            "cores": 2,
+            "memory": "2 GB",
+            "walltime": "00:10:00",
+            "worker_extra_args": ["--lifetime", "8m", "--lifetime-stagger", "2m"],
+        },
+        adapt_kwargs={
+            "minimum": 0,
+            "maximum": 1,
+        },
+    ),
+)
 def create_experiment_flow(
     name: str = "experiment",
     description: str = "Experiment to answer " "questions.",
     root_dir: str = "/tungstenfs/scratch/gmicro_sem",
+    persist_result=False,
 ):
     params = dict(locals())
     exp = create_experiment(name=name, description=description, root_dir=root_dir)
@@ -92,12 +109,6 @@ if __name__ == "__main__":
     parser.add_argument("--description")
     parser.add_argument("--root_dir")
     args = parser.parse_args()
-
-    kwargs = {
-        "name": args.name,
-        "description": args.description,
-        "root_dir": args.root_dir,
-    }
 
     create_experiment_flow(
         name=args.name, description=args.description, root_dir=args.root_dir
