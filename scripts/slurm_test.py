@@ -1,16 +1,17 @@
 import os
 from time import sleep
 
-from prefect import flow, task
+from prefect import flow, get_run_logger, task
 from prefect_dask import DaskTaskRunner
 
 
 @task()
 def dummy_task():
+    logger = get_run_logger()
+    logger.info(f"I am the task and run on {os.environ['SLURM_JOB_ID']}.")
     for i in range(10):
         sleep(10)
-        print(f"{i}")
-        print(os.environ["SLURM_JOB_ID"])
+        logger.info(f"I am the task and run on {os.environ['SLURM_JOB_ID']}.")
 
 
 @flow(
@@ -31,6 +32,8 @@ def dummy_task():
     ),
 )
 def test_flow():
+    logger = get_run_logger()
+    logger.info(f"I am the flow and run on {os.environ['SLURM_JOB_ID']}.")
     dummy_task.submit()
 
 
