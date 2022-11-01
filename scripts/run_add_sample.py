@@ -51,11 +51,11 @@ def save_params(output_dir: str, params: Dict):
 
 
 @task()
-def commit_changes(exp: Experiment):
+def commit_changes(exp: Experiment, name: str):
     with git.Repo(join(exp.get_root_dir(), exp.get_name())) as repo:
         repo.index.add(repo.untracked_files)
         repo.index.add([item.a_path for item in repo.index.diff(None)])
-        repo.index.commit("Add sample.", author=exp._git_author)
+        repo.index.commit(f"Add sample '{name}'.", author=exp._git_author)
 
 
 @flow(
@@ -97,7 +97,9 @@ def add_sample_to_experiment_flow(
         output_dir=join(exp.get_root_dir(), exp.get_name(), "processing"), params=params
     )
 
-    commit_changes(exp=exp, wait_for=[exp, cs, save_env, save_sys, run_context])
+    commit_changes(
+        exp=exp, name=name, wait_for=[exp, cs, save_env, save_sys, run_context]
+    )
 
 
 if __name__ == "__main__":
