@@ -104,7 +104,9 @@ class Experiment(ReferenceMixin, Info):
     def _init_git(self):
         repo_dir = join(self._root_dir, self.get_name())
         if not exists(join(repo_dir, ".git")):
-            git.Repo.init(repo_dir)
+            repo = git.Repo.init(repo_dir)
+            with repo.config_writer() as config:
+                config.set_value("core", "filemode", False)
 
     def save(self, overwrite: bool = False, section_to_subdir: bool = True):
         out_path = join(self._root_dir, self.get_name())
