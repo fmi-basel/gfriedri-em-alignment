@@ -55,7 +55,7 @@ def commit_changes(exp: Experiment):
     with git.Repo(join(exp.get_root_dir(), exp.get_name())) as repo:
         repo.index.add(repo.untracked_files)
         repo.index.add([item.a_path for item in repo.index.diff(None)])
-        repo.index.commit("Create experiment.", author=exp._git_author)
+        repo.index.commit("Add sample.", author=exp._git_author)
 
 
 @flow(
