@@ -19,7 +19,7 @@ def load_experiment(path: str):
 
 
 @task()
-def create_sample(exp: Experiment, name: str, description: str):
+def add_sample(exp: Experiment, name: str, description: str):
     assert " " not in name, "Name contains spaces."
     assert exp.get_sample(name) is None, "Sample exists already."
     Sample(
@@ -83,7 +83,7 @@ def add_sample_to_experiment_flow(
 ):
     params = dict(locals())
     exp = load_experiment(path=exp_path)
-    cs = create_sample(exp=exp, name=name, description=description)
+    cs = add_sample(exp=exp, name=name, description=description)
 
     save_env = save_conda_env(
         output_dir=join(exp.get_root_dir(), exp.get_name(), "processing")
