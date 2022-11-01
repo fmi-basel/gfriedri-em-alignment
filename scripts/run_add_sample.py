@@ -43,7 +43,7 @@ def save_params(output_dir: str, params: Dict):
     """
     logger = get_run_logger()
 
-    outpath = join(output_dir, "args_create-experiment.json")
+    outpath = join(output_dir, "args_add-sample.json")
     with open(outpath, "w") as f:
         json.dump(params, f, indent=4)
 
