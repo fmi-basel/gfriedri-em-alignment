@@ -1,5 +1,4 @@
 import argparse
-from os.path import join
 from time import sleep
 from typing import Dict
 
@@ -96,9 +95,7 @@ def test_flow(
         tile_overlap=tile_overlap,
     )
 
-    run_context = save_params.submit(
-        output_dir=join(exp.get_root_dir(), exp.get_name(), "processing"), params=params
-    )
+    run_context = save_params.submit(output_dir="bla", params=params)
 
     commit_changes.submit(
         exp=exp,
