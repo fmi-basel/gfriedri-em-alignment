@@ -30,9 +30,9 @@ def dummy_task():
         },
     ),
 )
-def add_sections_to_sample_flow():
+def test_flow():
     dummy_task.submit()
 
 
 if __name__ == "__main__":
-    add_sections_to_sample_flow()
+    test_flow()
