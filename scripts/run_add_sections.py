@@ -3,6 +3,7 @@ import json
 from os.path import join
 from typing import Dict
 
+import dask_jobqueue
 import git
 from prefect import flow, get_run_logger, task
 from prefect_dask import DaskTaskRunner
@@ -79,7 +80,7 @@ def commit_changes(exp: Experiment, name: str):
 @flow(
     name="Add Sections",
     task_runner=DaskTaskRunner(
-        cluster_class="dask_jobqueue.SLURMCluster",
+        cluster_class=dask_jobqueue.SLURMCluster,
         cluster_kwargs={
             "account": "dlthings",
             "cores": 2,
@@ -88,7 +89,6 @@ def commit_changes(exp: Experiment, name: str):
             "worker_extra_args": ["--lifetime", "55m", "--lifetime-stagger", "5m"],
         },
         adapt_kwargs={
-            "minimum": 0,
             "maximum": 1,
         },
     ),
@@ -106,8 +106,8 @@ def add_sections_to_sample_flow(
     tile_overlap: int = 200,
 ):
     params = dict(locals())
-    exp = load_experiment(path=exp_path)
-    as_task = add_sections(
+    exp = load_experiment.submit(path=exp_path).result()
+    as_task = add_sections.submit(
         exp=exp,
         sample_name=sample_name,
         sbem_root_dir=sbem_root_dir,
@@ -120,19 +120,19 @@ def add_sections_to_sample_flow(
         tile_overlap=tile_overlap,
     )
 
-    save_env = save_conda_env(
+    save_env = save_conda_env.submit(
         output_dir=join(exp.get_root_dir(), exp.get_name(), "processing")
     )
 
-    save_sys = save_system_information(
+    save_sys = save_system_information.submit(
         output_dir=join(exp.get_root_dir(), exp.get_name(), "processing")
     )
 
-    run_context = save_params(
+    run_context = save_params.submit(
         output_dir=join(exp.get_root_dir(), exp.get_name(), "processing"), params=params
     )
 
-    commit_changes(
+    commit_changes.submit(
         exp=exp,
         name=sample_name,
         wait_for=[exp, as_task, save_env, save_sys, run_context],
