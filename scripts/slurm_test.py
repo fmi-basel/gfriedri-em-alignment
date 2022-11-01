@@ -32,8 +32,6 @@ def dummy_task():
     ),
 )
 def test_flow():
-    logger = get_run_logger()
-    logger.info(f"I am the flow and run on {os.environ['SLURM_JOB_ID']}.")
     dummy_task.submit()
 
 
