@@ -3,7 +3,6 @@ import json
 from os.path import join
 from typing import Dict
 
-import dask_jobqueue
 import git
 from prefect import flow, get_run_logger, task
 from prefect_dask import DaskTaskRunner
@@ -80,7 +79,7 @@ def commit_changes(exp: Experiment, name: str):
 @flow(
     name="Add Sections",
     task_runner=DaskTaskRunner(
-        cluster_class=dask_jobqueue.SLURMCluster,
+        cluster_class="dask_jobqueue.SLURMCluster",
         cluster_kwargs={
             "account": "dlthings",
             "cores": 2,
@@ -89,6 +88,7 @@ def commit_changes(exp: Experiment, name: str):
             "worker_extra_args": ["--lifetime", "55m", "--lifetime-stagger", "5m"],
         },
         adapt_kwargs={
+            "minimum": 1,
             "maximum": 1,
         },
     ),
