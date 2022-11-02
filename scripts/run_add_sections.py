@@ -91,7 +91,6 @@ async def get_prologue():
             "memory": "12 GB",
             "walltime": "01:00:00",
             "worker_extra_args": ["--lifetime", "55m", "--lifetime-stagger", "5m"],
-            "job_script_prologue": get_prologue(),
         },
         adapt_kwargs={
             "minimum": 1,
