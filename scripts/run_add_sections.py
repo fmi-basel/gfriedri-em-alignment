@@ -4,9 +4,10 @@ from os.path import join
 from typing import Dict
 
 import git
-from prefect import flow, get_run_logger, task
 from prefect_dask import DaskTaskRunner
 
+from prefect import flow, get_run_logger, task
+from prefect.blocks.system import String
 from sbem.experiment.Experiment_v2 import Experiment
 from sbem.experiment.parse_utils import parse_and_add_sections
 from sbem.utils.env import save_conda_env
@@ -76,6 +77,10 @@ def commit_changes(exp: Experiment, name: str):
         repo.index.commit(f"Add sections to sample '{name}'.", author=exp._git_author)
 
 
+async def get_prologue():
+    return await String.load("log-slurm-job").value
+
+
 @flow(
     name="Add Sections",
     task_runner=DaskTaskRunner(
@@ -86,6 +91,7 @@ def commit_changes(exp: Experiment, name: str):
             "memory": "12 GB",
             "walltime": "01:00:00",
             "worker_extra_args": ["--lifetime", "55m", "--lifetime-stagger", "5m"],
+            "job_script_prologue": get_prologue(),
         },
         adapt_kwargs={
             "minimum": 1,
