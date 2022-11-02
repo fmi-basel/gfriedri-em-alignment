@@ -92,14 +92,7 @@ async def get_prologue():
             "walltime": "01:00:00",
             "worker_extra_args": ["--lifetime", "55m", "--lifetime-stagger", "5m"],
             "job_script_prologue": [
-                "conda",
-                "run",
-                "-p",
-                "/tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable",
-                "python",
-                "/tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py",
-                "--config",
-                "/tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini",
+                "conda run -p /tungstenfs/scratch/gmicro_share/_prefect/miniconda3/envs/airtable python /tungstenfs/scratch/gmicro_share/_prefect/airtable/log-slurm-job.py --config /tungstenfs/scratch/gmicro/_prefect/airtable/slurm-job-log.ini"
             ],
         },
         adapt_kwargs={
