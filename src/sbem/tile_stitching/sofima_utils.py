@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import numpy as np
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
-from sbem.experiment.Experiment_v2 import Experiment
+from sbem.experiment.Experiment import Experiment
 from sbem.record.Section import Section
 
 
