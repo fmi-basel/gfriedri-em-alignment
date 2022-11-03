@@ -2,7 +2,7 @@ import argparse
 from time import sleep
 from typing import Dict
 
-from prefect import flow, get_run_logger, task
+from caching import flow, get_run_logger, task
 from prefect_dask import DaskTaskRunner
 
 from sbem.experiment.Experiment_v2 import Experiment

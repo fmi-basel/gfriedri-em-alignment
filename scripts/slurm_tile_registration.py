@@ -47,10 +47,16 @@ def config_to_dict(config):
     }
 
     if "start_section" in register_tiles:
-        kwargs.update({"start_section": int(register_tiles["start_section"]),
-                      "end_section": int(register_tiles["end_section"])})
+        kwargs.update(
+            {
+                "start_section": int(register_tiles["start_section"]),
+                "end_section": int(register_tiles["end_section"]),
+            }
+        )
     elif "section_num_list" in register_tiles:
-        section_list = list(int(x) for x in register_tiles["section_num_list"].split(","))
+        section_list = list(
+            int(x) for x in register_tiles["section_num_list"].split(",")
+        )
         kwargs["section_num_list"] = section_list
     else:
         raise ValueError("Section range or section list not specified in config.")
@@ -76,12 +82,11 @@ def main():
         with open(join(run_dir, "tile_registration.config"), "w") as f:
             config.write(f)
 
-
     if "start_section" in kwargs:
         n_sections_per_job = 75
         for i, section_start in enumerate(
             range(kwargs["start_section"], kwargs["end_section"], n_sections_per_job)
-            ):
+        ):
             section_end = min(section_start + n_sections_per_job, kwargs["end_section"])
             config["REGISTER_TILES"]["start_section"] = str(section_start)
             config["REGISTER_TILES"]["end_section"] = str(section_end)
@@ -91,21 +96,21 @@ def main():
 
 
 def submit_job(config, job_idx, run_dir):
-        with open(join(run_dir, f"tile_registration_{job_idx}.config"), "w") as f:
-            config.write(f)
+    with open(join(run_dir, f"tile_registration_{job_idx}.config"), "w") as f:
+        config.write(f)
 
-        job_file = join(run_dir, f"register_tiles_sj-{job_idx}.sh")
-        write_tile_registration_slurm_job_script(config, job_idx, job_file, run_dir)
+    job_file = join(run_dir, f"register_tiles_sj-{job_idx}.sh")
+    write_tile_registration_slurm_job_script(config, job_idx, job_file, run_dir)
 
-        cmd = f"sbatch {job_file}"
-        p = subprocess.check_output(cmd.split())
-        job_id = p.decode("utf-8").split("Submitted batch job")[1].strip()
+    cmd = f"sbatch {job_file}"
+    p = subprocess.check_output(cmd.split())
+    job_id = p.decode("utf-8").split("Submitted batch job")[1].strip()
 
-        job_file = join(run_dir, f"warp_and_save_sj-{job_idx}.sh")
-        write_warp_and_save_slurm_job_script(config, job_idx, job_file, job_id, run_dir)
+    job_file = join(run_dir, f"warp_and_save_sj-{job_idx}.sh")
+    write_warp_and_save_slurm_job_script(config, job_idx, job_file, job_id, run_dir)
 
-        cmd = f"sbatch {job_file}"
-        p = subprocess.check_output(cmd.split())
+    cmd = f"sbatch {job_file}"
+    p = subprocess.check_output(cmd.split())
 
 
 def write_tile_registration_slurm_job_script(config, i, job_file, run_dir):

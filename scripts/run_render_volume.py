@@ -1,25 +1,22 @@
-import os
-import sys
+import argparse
 import asyncio
 import json
-import argparse
 import logging
+import sys
 
 from sbem.render_volume.render_tasks import render_volume
-from sbem.render_volume.schema import VolumeConfig, DownsampleConfig
+from sbem.render_volume.schema import DownsampleConfig, VolumeConfig
 from sbem.section_align.param_schema import LoadSectionsConfig
-
-
-from datetime import datetime
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config")
-    parser.add_argument("--no_write", action="store_true",
-                        help="Do not write the volume data to disk")
-    parser.add_argument("--overwrite", action="store_true",
-                        help="Overwrite existing volume")
+    parser.add_argument(
+        "--no_write", action="store_true", help="Do not write the volume data to disk"
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true", help="Overwrite existing volume"
+    )
     args = parser.parse_args()
 
     logger = logging.getLogger("run_render_volume")
@@ -52,15 +49,17 @@ if __name__ == "__main__":
     else:
         write_to_existing = False
 
-    kwargs = dict(load_sections_config=load_sections_config,
-                  offset_dir=offset_dir,
-                  coord_file=coord_file,
-                  volume_config=volume_config,
-                  downsample_config=downsample_config,
-                  overwrite=args.overwrite,
-                  no_write=args.no_write,
-                  write_range=write_range,
-                  write_to_existing=write_to_existing,
-                  logger=logger)
+    kwargs = dict(
+        load_sections_config=load_sections_config,
+        offset_dir=offset_dir,
+        coord_file=coord_file,
+        volume_config=volume_config,
+        downsample_config=downsample_config,
+        overwrite=args.overwrite,
+        no_write=args.no_write,
+        write_range=write_range,
+        write_to_existing=write_to_existing,
+        logger=logger,
+    )
 
     asyncio.run(render_volume(**kwargs))

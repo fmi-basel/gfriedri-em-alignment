@@ -1,12 +1,10 @@
 import argparse
 import configparser
 
-from prefect import Flow, Parameter, unmapped
-from prefect.executors import LocalDaskExecutor
+from caching import Flow, Parameter, unmapped
+from caching.executors import LocalDaskExecutor
 
-from sbem.tile_stitching.sofima_tasks import (
-    load_sections_task,
-    run_warp_and_save)
+from sbem.tile_stitching.sofima_tasks import load_sections_task, run_warp_and_save
 
 
 def config_to_dict(config):
@@ -27,14 +25,19 @@ def config_to_dict(config):
     }
 
     if "start_section" in register_tiles:
-        kwargs.update({"start_section": int(register_tiles["start_section"]),
-                      "end_section": int(register_tiles["end_section"])})
+        kwargs.update(
+            {
+                "start_section": int(register_tiles["start_section"]),
+                "end_section": int(register_tiles["end_section"]),
+            }
+        )
     elif "section_num_list" in register_tiles:
-        section_list = list(int(x) for x in register_tiles["section_num_list"].split(","))
+        section_list = list(
+            int(x) for x in register_tiles["section_num_list"].split(",")
+        )
         kwargs["section_num_list"] = section_list
     else:
         raise ValueError("Section range or section list not specified in config.")
-
 
     return kwargs
 
@@ -60,7 +63,8 @@ with Flow("Section-Warping-and-Saving") as flow:
         grid_index=grid_index,
         start_section=start_section,
         end_section=end_section,
-        section_num_list=section_num_list)
+        section_num_list=section_num_list,
+    )
 
     warp_obj = run_warp_and_save.map(
         sections,
