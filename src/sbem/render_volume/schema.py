@@ -1,13 +1,14 @@
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
+from typing import List, Tuple
 
-from typing import Tuple, List, Optional
+from dataclasses_json import dataclass_json
 
 
 @dataclass_json
 @dataclass
 class VolumeConfig:
     """Class for render volume parameters"""
+
     path: str
     resolution: List[float]
     chunk_size: List[int]
@@ -18,5 +19,5 @@ class VolumeConfig:
 @dataclass_json
 @dataclass
 class DownsampleConfig:
-    downsample_factors: Tuple[int]=(1, 1)
-    method: str="mean"
+    downsample_factors: Tuple[int] = (1, 1)
+    method: str = "mean"

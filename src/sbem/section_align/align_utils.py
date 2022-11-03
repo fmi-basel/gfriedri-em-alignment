@@ -1,12 +1,13 @@
-import os
 import json
 import logging
-import zarr
-import numpy as np
+import os
 
-from skimage.transform import downscale_local_mean
+import numpy as np
+import zarr
 from skimage.io import imsave
+from skimage.transform import downscale_local_mean
 from sofima import stitch_rigid
+
 from sbem.experiment import Experiment
 
 
@@ -28,32 +29,34 @@ def downsample_image(img, factor):
 def crop_image_center(img, dx, dy):
     img_shape = img.shape
     center = np.array(img_shape) // 2
-    cropped = img[center[0]-dy:center[0]+dy,
-            center[1]-dx:center[1]+dx]
+    cropped = img[center[0] - dy : center[0] + dy, center[1] - dx : center[1] + dx]
     return cropped, center
 
 
 def estimate_offset(pre, post, align_config):
-    xyo, pr = stitch_rigid._estimate_offset(pre, post,
-                                            align_config.range_limit,
-                                            align_config.filter_size)
+    xyo, pr = stitch_rigid._estimate_offset(
+        pre, post, align_config.range_limit, align_config.filter_size
+    )
     return xyo, pr
 
 
 def save_offset(xyo, pr, save_path):
-    result = dict(xyo=list(map(float, xyo)),
-                  pr=float(pr))
+    result = dict(xyo=list(map(float, xyo)), pr=float(pr))
     with open(save_path, "w") as f:
         json.dump(result, f)
 
 
-def estimate_offset_and_save(pre_path, post_path, align_config, offset_path,
-                             margin=50,
-                             min_diff_thresh=40,
-                             debug=False):
-
+def estimate_offset_and_save(
+    pre_path,
+    post_path,
+    align_config,
+    offset_path,
+    margin=50,
+    min_diff_thresh=40,
+    debug=False,
+):
     def _is_valid_offset(offset, crop_size):
-        dist_to_crop = np.array(crop_size)*2 - margin - np.abs(xyo)
+        dist_to_crop = np.array(crop_size) * 2 - margin - np.abs(xyo)
         return (not np.isnan(xyo).any()) and (dist_to_crop >= 0).all()
 
     pre = load_n5(pre_path)
@@ -76,7 +79,9 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path,
 
         if debug:
             base_dir, file_name = os.path.split(offset_path)
-            debug_dir = os.path.join(base_dir, f"debug_{os.path.splitext(file_name)[0]}")
+            debug_dir = os.path.join(
+                base_dir, f"debug_{os.path.splitext(file_name)[0]}"
+            )
             if not os.path.exists(debug_dir):
                 os.mkdir(debug_dir)
             imsave(os.path.join(debug_dir, "pre.tif"), pre_cropped)
@@ -100,15 +105,15 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path,
             break
 
         if pr > max_pr and valid:
-          max_pr = pr
-          max_idx = len(estimates) - 1
+            max_pr = pr
+            max_idx = len(estimates) - 1
 
     if not done:
         min_diff = np.inf
         min_idx = 0
         for i, (off0, off1) in enumerate(zip(estimates, estimates[1:])):
             diff = np.linalg.norm(np.array(off1) - np.array(off0))
-            if diff < min_diff and _is_valid_offset(off1, crop_size_list[i+1]):
+            if diff < min_diff and _is_valid_offset(off1, crop_size_list[i + 1]):
                 min_diff = diff
                 min_idx = i
 
@@ -139,17 +144,21 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path,
     save_offset(xyo, pr, offset_path)
 
 
-def load_sections(sbem_experiment, grid_index, start_section, end_section,
-                  exclude_sections=None,
-                  logger=None):
+def load_sections(
+    sbem_experiment,
+    grid_index,
+    start_section,
+    end_section,
+    exclude_sections=None,
+    logger=None,
+):
     if logger is None:
         logger = logging.getLogger()
     exp = Experiment(logger=logger)
     exp.load(sbem_experiment)
     sections = exp.load_sections(start_section, end_section, grid_index)
     if exclude_sections:
-        sections = [s for s in sections
-                    if s.section_id[0] not in exclude_sections]
+        sections = [s for s in sections if s.section_id[0] not in exclude_sections]
     return sections
 
 
@@ -161,18 +170,17 @@ def log_section_numbers(sections, path):
 
 def remove_missing_sections(sections):
     stitched = []
-    unloaded  = []
+    unloaded = []
     unstitched = []
     for sec in sections:
         if sec is None:
-            continue # TODO log non-existing sections too
+            continue  # TODO log non-existing sections too
         elif not sec.is_loaded:
             unloaded.append(sec)
         elif not sec.check_stitched():
             unstitched.append(sec)
         else:
             stitched.append(sec)
-
 
     return stitched, unloaded, unstitched
 
@@ -219,7 +227,7 @@ def load_offsets(offset_dir, load_sections_config):
 
 def offsets_to_coords(xy_offsets, non_neg=True):
     xy_coords = np.cumsum(xy_offsets, axis=0)
-    xy_coords = np.insert(xy_coords, 0, [0,0], axis=0)
+    xy_coords = np.insert(xy_coords, 0, [0, 0], axis=0)
     if non_neg:
         xy_coords = xy_coords - xy_coords.min(axis=0)
     xy_coords = xy_coords.astype(int)
@@ -228,9 +236,11 @@ def offsets_to_coords(xy_offsets, non_neg=True):
 
 def save_coords(coord_file, sections, xy_offsets, xy_coords):
     section_numbers = [s.section_id[0] for s in sections]
-    coord_result = dict(section_numbers=section_numbers,
-                        xy_offsets=xy_offsets.tolist(),
-                        xy_coords=xy_coords.tolist())
+    coord_result = dict(
+        section_numbers=section_numbers,
+        xy_offsets=xy_offsets.tolist(),
+        xy_coords=xy_coords.tolist(),
+    )
     with open(coord_file, "w") as f:
         json.dump(coord_result, f, indent=4)
 
