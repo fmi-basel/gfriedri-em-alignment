@@ -16,7 +16,7 @@ stitching and alignment.
 We recommend creating new conda environment with
 
 ```shell
-  conda create --name sbem_stitching python=3.8
+  conda create --name sbem_stitching python=3.9
 ```
 
 Then this package can be installed with
@@ -35,7 +35,7 @@ these [installation instructions](https://github.com/google/jax#pip-installation
 
 The folder structure of the input data generated
 by [SBEMimage](https://github.com/SBEMimage/SBEMimage) is described in
-its [software documentation](https://sbemimage.readthedocs.io/en/latest/datasets.html).<br/>
+its [software documentation](https://sbemimage.readthedocs.io/en/latest/datasets.html). <br/>
 Each experiment consists of one or many SBEMimage datasets, which is referred
 to as blocks. Each block then contains several 2D sections that locates in a
 range of z-positions. Each section contains a grid of tile images.<br/>
@@ -49,61 +49,75 @@ for downstream processing.
   SBEMimage needs to be converted to the tile ID maps that can be used as input
   metadata for [SOFIMA](https://github.com/google-research/sofima).
 
-1. Create an Experiment instance
 
-``` python
+## 1. Create an Experiment instance
+Create a new `em_alignment` experiment. An experiment can contain mulitple
+samples and each sample can contain multiple sections.
+
+```python
 from sbem.experiment.Experiment import Experiment
+from sbem.record.Author import Author
+from sbem.record.Citation import Citation
 
 # directory of the SBEMimage dataset (e.g. 2020101_sampleid_run01/)
-exp_name = "Example"
-save_dir = '/dir/to/which/this/exp/is/saved/'
 
 # A new Experiment is created with:
-exp = Experiment(name=exp_name,
-                 save_dir=save_dir)
-
+exp = Experiment(
+        name="Experiment",
+        description="A short description.",
+        documentation="README.md",
+        authors=[Author(name="", affiliation="")],
+        root_dir="/dir/to/which/this/exp/is/saved/",
+        exist_ok=True,
+        cite=[Citation(doi="", text="", url="")],
+    )
+    exp.save()
 ```
 
-2. Add a block of sections to the experiment
 
-``` python
-sbem_root_dir = "/dir/containig/the/sbem/data/'
+## 2. Add a sample to the experiment
+A sample corresponds to a whole imaged object and can consist of many
+thousand sections. The acquired sections can come from different
+acquisition runs.
 
-# Add a Block
-exp.parse_block(sbem_root_dir=sbem_root_dir,
-                name="example-block",
-                tile_grid="g0001", # string that refers to the grid folder
-                resolution_xy=11.0, # pixel size in nano-meters of the tiles
-                tile_width=3072, # tile-width in pixels
-                tile_height=2304, # tile-height in pixels
-                tile_overlap=200) # tile-overlap in pixels
+```python
+from sbem.record.Sample import Sample
+Sample(
+    experiment=exp,
+    name="Sample_00",
+    description="",
+    documentation="",
+    aligned_data="",
+)
 
-exp.save()
+exp.save(overwrite=True)
 ```
 
-3. Stitch tiles in each section (2D stitching)
-Fill out the [tile_registration.confg](./scripts/tile_registration.config).
+## 3. Add sections to a sample
+In this step the medatadata from a SBEM acquisition is parsed and the
+sections and their tiles are added to the sample.
 
-Run tile-registration script:
-```shell
-python scripts/run_tile_registration.py --config scripts/tile_registration.config
+```python
+from sbem.experiment.parse_utils import parse_and_add_sections
+
+sample = exp.get_sample("Sample_00")
+
+parse_and_add_sections(
+    sbem_root_dir="/path/to/sbem/acquisition_dir",
+    sample=sample,
+    acquisition="run_0", # name of the acquisition run for these sections
+    tile_grid="g0001", # string that refers to the grid folder
+    thickness=25.0, # section thickness nano-meters
+    resolution_xy=11.0, # pixel size in nano-meters of the tiles
+    tile_width=3072, # tile-width in pixels
+    tile_height=2304, # tile-height in pixels
+    tile_overlap=200) # tile-overlap in pixels
+    overwrite=True,
+)
+
+exp.save(overwrite=True)
 ```
 
-Run warp-and-save script:
-```shell
-python scripts/run_warp_and_save.py --config scripts/tile_registration.config
-```
-
-__Note:__ If a SLURM cluster is available the `slurm_tile_registration.py`
-script can be used as well. Make sure to set the SLURM parameters
-accordingly in the [tile_registraion.config](./scripts/tile_registration.config).
-The slurm-script will create batches of 75 sections and submit for every
-batch two jobs. The first job (with a GPU) will execute
-`run_tile_registration.py` and the second job (CPU only) will execute
-`run_warp_and_save.py`. The second job is depending on the first job and
-only started after it has finished.
-
-- Align all sections across z-direction (3D alignment)
 
 # License
 
