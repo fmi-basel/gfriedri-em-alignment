@@ -172,6 +172,7 @@ def register_tiles(
         "meshes.npz",
     )
     np.savez(mesh_path, **{str(k): v for k, v in meshes.items()})
+    section.set_alignment_mesh(mesh_path)
     return mesh_path
 
 
