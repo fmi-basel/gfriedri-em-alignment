@@ -1,4 +1,5 @@
 import functools as ft
+import logging
 from os.path import exists, join
 
 import jax
@@ -6,7 +7,8 @@ import jax.numpy as jnp
 import numpy as np
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
-from sbem.record.SectionRecord import SectionRecord
+from sbem.experiment.Experiment_v2 import Experiment
+from sbem.record.Section import Section
 
 
 def default_mesh_integration_config(stride: int = 20, k0: float = 0.01, k: float = 0.1):
@@ -42,7 +44,7 @@ def default_sofima_config():
 
 
 def register_tiles(
-    section: SectionRecord,
+    section: Section,
     stride: int,
     overlaps_x: tuple,
     overlaps_y: tuple,
@@ -57,9 +59,17 @@ def register_tiles(
     max_gradient: float = -1,
     reconcile_flow_max_deviation: float = -1,
     integration_config: mesh.IntegrationConfig = default_mesh_integration_config(),
+    logger=logging.getLogger("load_sections"),
 ):
-    tile_space = section.tile_id_map.shape
-    tile_map = section.get_tile_data_map()
+    tim_path = join(
+        section.get_sample().get_experiment().get_root_dir(),
+        section.get_sample().get_experiment().get_name(),
+        section.get_sample().get_name(),
+        section.get_name(),
+        "tile_id_map.json",
+    )
+    tile_space = section.get_tile_id_map(path=tim_path).shape
+    tile_map = section.get_tile_data_map(path=tim_path, indexing="xy")
     cx, cy = stitch_rigid.compute_coarse_offsets(
         tile_space,
         tile_map,
@@ -69,6 +79,16 @@ def register_tiles(
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
     cx = np.squeeze(cx, axis=1)
     cy = np.squeeze(cy, axis=1)
+
+    if np.isinf(cx).any() or np.isinf(cy).any():
+        msg = (
+            f"register_tiles: Inf in coarse mesh. Coarse rigid registration "
+            f"failed. Section number {section.get_section_num()}."
+        )
+        long_msg = f"{msg}\ncx: {np.array2string(cx)}\ncy: {np.array2string(cy)}"
+        logger.error(long_msg)
+        raise ValueError(msg)
+
     fine_x, offsets_x = stitch_elastic.compute_flow_map(
         tile_map,
         cx,
@@ -144,13 +164,19 @@ def register_tiles(
     idx_to_key = {v: k for k, v in key_to_idx.items()}
     meshes = {idx_to_key[i]: np.array(x[:, i : i + 1]) for i in range(x.shape[1])}
 
-    mesh_path = join(section.save_dir, "meshes.npz")
+    mesh_path = join(
+        section.get_sample().get_experiment().get_root_dir(),
+        section.get_sample().get_experiment().get_name(),
+        section.get_sample().get_name(),
+        section.get_name(),
+        "meshes.npz",
+    )
     np.savez(mesh_path, **{str(k): v for k, v in meshes.items()})
     return mesh_path
 
 
 def render_tiles(
-    section: SectionRecord,
+    section: Section,
     stride,
     margin=50,
     parallelism=1,
@@ -158,8 +184,15 @@ def render_tiles(
     clahe_kwargs: ... = None,
 ):
     tile_map = section.get_tile_data_map()
-    if exists(join(section.save_dir, "meshes.npz")):
-        data = np.load(join(section.save_dir, "meshes.npz"))
+    mesh_path = join(
+        section.get_sample().get_experiment().get_root_dir(),
+        section.get_sample().get_experiment().get_name(),
+        section.get_sample().get_name(),
+        section.get_name(),
+        "meshes.npz",
+    )
+    if exists(mesh_path):
+        data = np.load(mesh_path)
         meshes = {tuple(int(i) for i in k[1:-1].split(",")): v for k, v in data.items()}
         # Warp the tiles into a single image.
         stitched, mask = warp.render_tiles(
@@ -175,3 +208,16 @@ def render_tiles(
         return stitched, mask
     else:
         return None, None
+
+
+def load_sections(exp: Experiment, sample_name: str, tile_grid_num: int):
+    sample = exp.get_sample(name=sample_name)
+
+    start_section = sample.get_min_section_num(tile_grid_num=tile_grid_num)
+    end_section = sample.get_max_section_num(tile_grid_num=tile_grid_num)
+    return sample.get_section_range(
+        start_section_num=start_section,
+        end_section_num=end_section,
+        tile_grid_num=tile_grid_num,
+        include_skipped=False,
+    )

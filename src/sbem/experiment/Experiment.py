@@ -1,211 +1,159 @@
-import json
-from glob import glob
-from os import mkdir
+from __future__ import annotations
+
+import logging
+import os
 from os.path import exists, join
+from typing import TYPE_CHECKING
 
-import zarr
-from tqdm import tqdm
+import git
+from git import Actor
+from ruyaml import YAML
 
-from sbem.experiment.parse_utils import get_tile_metadata
-from sbem.record.BlockRecord import BlockRecord
-from sbem.record.SectionRecord import SectionRecord
-from sbem.record.TileRecord import TileRecord
+from sbem.record.Author import Author
+from sbem.record.Citation import Citation
+from sbem.record.Info import Info
+from sbem.record.ReferenceMixin import ReferenceMixin
+from sbem.record.Sample import Sample
+
+if TYPE_CHECKING:  # pragma: no cover
+    from typing import Dict, List
 
 
-class Experiment:
-    """
-    An experiment consists of multiple blocks. Every block is made up of
-    many sections. Each section contains many tiles.
-
-    `Experiment` is a data structure that keeps track of the blocks,
-    sections, and tiles once they are acquired by the Friedrich lab at FMI.
-
-    Once the `Experiment` data structure is built it can be saved to disk.
-    Saving creates a new directory in `save_dir` with the `name` of the
-    `Experiment`. The directory contains a `experiment.json` file. Among
-    general information this file contains a list of blocks assigned to this
-    `Experiment`. The blocks itself are saved as additional directories in
-    `Experiment`.
-    """
-
-    def __init__(self, name: str = None, save_dir: str = None, logger=None):
-        """
-        :param name: Used as save name.
-        :param save_dir: The directory where this data structure and all
-        processed data should be saved. Preferably this is different from
-        `sbem_run_dir`.
-        """
-        self.logger = logger
-        self.name = name
-        if self.name is None:
-            self.name = "Experiment"
-
-        if save_dir is not None:
-            assert exists(save_dir), f"{save_dir} does not exist."
-            self.save_dir = join(save_dir, self.name)
-            self.zarr_root = zarr.open(zarr.N5FSStore(self.save_dir), mode="a")
-        else:
-            self.save_dir = join(".", self.name)
-            self.zarr_root = None
-
-        self.blocks = {}
-
-    def add_block(self, block: BlockRecord):
-        """
-        Add a block to this experiment.
-
-        :param block: to register
-        """
-        self.blocks[block.block_id] = block
-
-    def parse_block(
+class Experiment(ReferenceMixin, Info):
+    def __init__(
         self,
-        sbem_root_dir: str,
         name: str,
-        tile_grid: str,
-        resolution_xy: float,
-        tile_width: int,
-        tile_height: int,
-        tile_overlap: int,
+        description: str,
+        documentation: str,
+        authors: List[Author],
+        root_dir: str,
+        exist_ok: bool = False,
+        license: str = "Creative Commons Attribution licence (CC " "BY)",
+        cite: List[Citation] = [],
+        logger=logging,
     ):
-        """
-        A helper function to parse the SBEM directory structure of a block.
+        super().__init__(name=name, license=license, authors=authors, cite=cite)
+        self._description = description
+        self._root_dir = root_dir
+        self._documentation = documentation
+        self._samples: Dict[str, Sample] = {}
+        self._git_author = Actor("sbem.Experiment", "")
+        self.logger = logger
 
-        A new block is created and all sections are created and regsiter
-        with this block. To every section all tiles of `tile_grid` and
-        `resolution_xy` are added. For every section the tile-id-map is
-        computed.
+        if self._root_dir is not None:
+            os.makedirs(self._root_dir, exist_ok=exist_ok)
 
-        :param sbem_root_dir: to the directory containing the block acquisition
-         data.
-        :param name: name of the block
-        :param tile_grid: identifier e.g. 'g0001'
-        :param resolution_xy: of the acquisitions in nm
-        :param tile_width: Width of the acquired tile in px.
-        :param tile_height: Height of the acquired tile in px.
-        :param tile_overlap: Overlap of acquired tiles in px.
-        """
-        block = BlockRecord(
-            self,
-            block_id=name,
-            save_dir=self.save_dir,
-            sbem_root_dir=sbem_root_dir,
-            logger=self.logger,
-        )
-
-        tile_grid_num = int(tile_grid[1:])
-
-        metadata_files = sorted(glob(join(sbem_root_dir, "meta", "logs", "metadata_*")))
-
-        tile_specs = get_tile_metadata(
-            sbem_root_dir, metadata_files, tile_grid_num, resolution_xy
-        )
-
-        for tile_spec in tqdm(tile_specs, desc="Build Block Record"):
-            section = block.get_section(tile_spec["z"], tile_grid_num)
-            if section is None:
-                section = SectionRecord(
-                    block=block,
-                    section_num=tile_spec["z"],
-                    tile_grid_num=tile_grid_num,
-                    tile_width=tile_width,
-                    tile_height=tile_height,
-                    tile_overlap=tile_overlap,
-                    save_dir=block.save_dir,
-                    logger=self.logger,
+        if exists(join(self._root_dir, self.get_name(), ".git")):
+            with git.Repo(join(self._root_dir, self.get_name())) as r:
+                assert not r.is_dirty(), (
+                    "[git-error]: Resolve untracked "
+                    "changes before loading the "
+                    "experiment."
                 )
 
-            tile = section.get_tile(tile_spec["tile_id"])
-            if tile is None:
-                TileRecord(
-                    section,
-                    path=tile_spec["tile_file"],
-                    tile_id=tile_spec["tile_id"],
-                    x=tile_spec["x"],
-                    y=tile_spec["y"],
-                    resolution_xy=resolution_xy,
-                    logger=self.logger,
-                )
-            else:
-                if self.logger is not None:
-                    self.logger.warning(
-                        "Tile {} in section {} already exists. "
-                        "Skipping. "
-                        "Existing tile path: {}; "
-                        "Skipped tile path: {}".format(
-                            tile.tile_id,
-                            section.section_num,
-                            tile.path,
-                            tile_spec["tile_file"],
-                        )
-                    )
-
-        for section in tqdm(block.sections.values(), desc="Build " "tile-id-maps"):
-            section.compute_tile_id_map()
-
-    def save(self):
-        """
-        Saves to `save_dir`.
-        Each block is saved in a sub-dir. Every section is saved in a
-        sub-dir of the block-dir. Every section contains the `tile-id-map`
-        saved as json and a list of all tiles in json.
-        """
-        assert self.save_dir is not None, "Save directory not set."
-        if not exists(self.save_dir):
-            mkdir(self.save_dir)
-        self._save_exp_dict()
-
-        for block_name, block in self.blocks.items():
-            block.save()
-
-    def load(self, path):
-        """
-        Load an experiment from disk.
-
-        :param path: to the experiment directory.
-        """
-        path_ = join(path, "experiment.json")
-        if not exists(path_) and self.logger is not None:
-            self.logger.warning(f"Experiment not found: {path_}")
+    def add_sample(self, sample: Sample):
+        if sample.get_experiment() is None:
+            sample.set_experiment(self)
         else:
-            with open(path_) as f:
-                exp_dict = json.load(f)
+            assert sample.get_experiment() == self, (
+                "Sample belongs to " "another experiment."
+            )
+        self._samples[sample.get_name()] = sample
 
-            self.name = exp_dict["name"]
-            self.save_dir = exp_dict["save_dir"]
-            self.zarr_root = zarr.open(zarr.N5FSStore(join(self.save_dir)), mode="a")
-            for block_name in exp_dict["blocks"]:
-                block = BlockRecord(
-                    self,
-                    block_id=block_name,
-                    save_dir=self.save_dir,
-                    sbem_root_dir=None,
-                    logger=self.logger,
-                )
-                block.load(join(path, block_name))
+    def get_sample(self, name: str) -> Sample:
+        if name in self._samples.keys():
+            return self._samples[name]
+        else:
+            return None
 
-    def _save_exp_dict(self):
-        """
-        Save the experiment metadata in json.
-        """
-        exp_dict = {
-            "name": self.name,
-            "save_dir": self.save_dir,
-            "n_blocks": len(self.blocks),
-            "blocks": list(self.blocks.keys()),
+    def get_description(self) -> str:
+        return self._description
+
+    def get_documentation(self) -> str:
+        return self._documentation
+
+    def get_root_dir(self) -> str:
+        return self._root_dir
+
+    def to_dict(self) -> Dict:
+        samples = []
+        for k in self._samples.keys():
+            s = self._samples.get(k)
+            samples.append(s.get_name())
+
+        return {
+            "name": self.get_name(),
+            "license": self.get_license(),
+            "format_version": self.get_format_version(),
+            "description": self._description,
+            "root_dir": self._root_dir,
+            "documentation": self._documentation,
+            "authors": [a.to_dict() for a in self._authors],
+            "cite": [c.to_dict() for c in self._cite],
+            "samples": samples,
         }
-        with open(join(self.save_dir, "experiment.json"), "w") as f:
-            json.dump(exp_dict, f, indent=4)
 
-    def save_block(self, block_name):
-        """
-        Save a block and update the experiment json file.
+    def _dump(self, path: str, overwrite: bool = False, section_to_subdir: bool = True):
+        yaml = YAML(typ="rt")
+        with open(join(path, "experiment.yaml"), "w") as f:
+            yaml.dump(self.to_dict(), f)
 
-        :param block_name: the name of the block.
-        """
-        assert self.save_dir is not None, "Save directory not set."
-        if not exists(self.save_dir):
-            mkdir(self.save_dir)
-        self._save_exp_dict()
-        assert block_name in self.blocks.keys(), f"Block {block_name} does not exist."
-        self.blocks[block_name].save()
+        for s in self._samples.values():
+            s.save(path, overwrite=overwrite, section_to_subdir=section_to_subdir)
+
+    def _init_git(self):
+        repo_dir = join(self._root_dir, self.get_name())
+        if not exists(join(repo_dir, ".git")):
+            repo = git.Repo.init(repo_dir)
+            with repo.config_writer() as config:
+                config.set_value("core", "filemode", False)
+
+    def save(self, overwrite: bool = False, section_to_subdir: bool = True):
+        out_path = join(self._root_dir, self.get_name())
+        if not exists(out_path):
+            os.makedirs(out_path, exist_ok=True)
+            self._dump(
+                path=out_path, overwrite=overwrite, section_to_subdir=section_to_subdir
+            )
+            self._init_git()
+        else:
+            if overwrite:
+                self._dump(
+                    path=out_path,
+                    overwrite=overwrite,
+                    section_to_subdir=section_to_subdir,
+                )
+                self._init_git()
+            else:
+                raise FileExistsError()
+
+    @staticmethod
+    def load(path: str) -> Experiment:
+        yaml = YAML(typ="rt")
+        with open(path) as f:
+            data = yaml.load(f)
+
+        exp = Experiment(
+            name=data["name"],
+            description=data["description"],
+            documentation=data["documentation"],
+            authors=[
+                Author(name=a["name"], affiliation=a["affiliation"])
+                for a in data["authors"]
+            ],
+            root_dir=data["root_dir"],
+            exist_ok=True,
+            license=data["license"],
+            cite=[
+                Citation(doi=d["doi"], text=d["text"], url=d["url"])
+                for d in data["cite"]
+            ],
+        )
+
+        for s in data["samples"]:
+            sample = Sample.load(
+                join(exp.get_root_dir(), exp.get_name(), s, "sample.yaml")
+            )
+            exp.add_sample(sample)
+
+        return exp
