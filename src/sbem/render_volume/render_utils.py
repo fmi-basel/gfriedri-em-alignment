@@ -138,6 +138,33 @@ async def create_volume(path: str,
     return volume
 
 
+async def create_volume_n5(path: str,
+                           size: list,
+                           chunk_size: list):
+    volume_spec = {
+        "driver": "n5",
+        "kvstore": {"driver": "file",
+                    "path": path
+                    },
+        "metadata": {
+            "compression": {
+                "type": "gzip"
+                },
+            "dataType": "uint8",
+            "dimensions": size,
+            "blockSize": chunk_size
+            },
+        "create": True,
+        "delete_existing": True
+    }
+
+    volume_future = ts.open(volume_spec)
+    volume = await volume_future
+    return volume
+
+
+
+
 async def open_volume(path, scale_index=0, scale_key=None):
     volume_spec = {
         "driver": "neuroglancer_precomputed",

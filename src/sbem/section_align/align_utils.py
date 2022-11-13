@@ -8,6 +8,7 @@ from skimage.transform import downscale_local_mean
 from skimage.io import imsave
 from sofima import stitch_rigid
 from sbem.experiment import Experiment
+from sbem.tile_stitching.sofima_utils import load_sections
 
 
 def load_json(path):
@@ -137,20 +138,6 @@ def estimate_offset_and_save(pre_path, post_path, align_config, offset_path,
     if align_config.downsample:
         xyo = np.multiply(xyo, align_config.downsample_factors)
     save_offset(xyo, pr, offset_path)
-
-
-def load_sections(sbem_experiment, grid_index, start_section, end_section,
-                  exclude_sections=None,
-                  logger=None):
-    if logger is None:
-        logger = logging.getLogger()
-    exp = Experiment(logger=logger)
-    exp.load(sbem_experiment)
-    sections = exp.load_sections(start_section, end_section, grid_index)
-    if exclude_sections:
-        sections = [s for s in sections
-                    if s.section_id[0] not in exclude_sections]
-    return sections
 
 
 def log_section_numbers(sections, path):

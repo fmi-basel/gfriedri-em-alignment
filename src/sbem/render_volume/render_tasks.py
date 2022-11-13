@@ -43,6 +43,7 @@ async def render_volume(load_sections_config,
         sections, write_xy_coords = \
           load_sections_with_range(load_sections_config, write_range, coord_file)
         write_sections = await read_stitched_sections(sections)
+        # TODO important! downsample sections
         start_z = write_range[0]
     else:
         raise ValueError("For writing to existing volume, please supply section range.")

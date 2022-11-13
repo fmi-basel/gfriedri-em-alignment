@@ -7,7 +7,7 @@ from sbem.render_volume.render_utils import (
     get_scale_key, get_sharding_spec,
     open_volume, get_resolution,
     get_shard_box, box_to_slices)
-from sbem.render_volume.schema import SizeHiearchy
+from sbem.render_volume.hierarchy import SizeHierarchy
 
 
 async def open_scaled_view(base_path, base_scale_key, downsample_factors,
@@ -85,15 +85,10 @@ async def write_scaled_volume(base_path,
 
     preshift_bits, minishard_bits, shard_bits = shard_bits_list
 
-    hierarchy = SizeHiearchy(volume_size=volume_size,
+    hierarchy = SizeHierarchy(volume_size=volume_size,
                              chunk_size=chunk_size)
 
-    hierarchy.shard_size_in_chunks = (preshift_bits+minishard_bits)/3
-    hierarchy.shard_size = np.multiply(hierarchy.shard_size_in_chunks,
-                                           hierarchy.chunk_size).astype(int)
-    hierarchy.grid_shape_in_shards = np.ceil(
-        np.divide(hierarchy.volume_size, hierarchy.shard_size)).astype(int)
-
+    hierarchy.compute_shard_size(preshift_bits, minishard_bits)
     num_shards = hierarchy.grid_shape_in_shards
 
     for i in range(num_shards[0]):
@@ -135,18 +130,20 @@ async def make_multiscale(volume_path,
     scale_keys = [get_scale_key(r) for r in resolutions]
     scale_keys.insert(0, volume_scale_key)
 
-    for k,df in enumerate(downsample_factors_list):
-        chunk_size = chunk_size_list[k]
-        base_scale_key = scale_keys[k]
-        scale_key = scale_keys[k+1]
-        print(scale_key)
-        task = asyncio.create_task(
-            write_scaled_volume(volume_path,
-                                base_scale_key,
-                                scale_key,
-                                df,
-                                chunk_size,
-                                downsample_method,
-                                sharding=True,
-                                shard_bits_list=sharding_list[k]))
-        await asyncio.wait_for(task, None)
+    sem = asyncio.Semaphore(10)
+    async with sem:
+        for k,df in enumerate(downsample_factors_list):
+            chunk_size = chunk_size_list[k]
+            base_scale_key = scale_keys[k]
+            scale_key = scale_keys[k+1]
+            print(scale_key)
+            task = asyncio.create_task(
+                write_scaled_volume(volume_path,
+                                    base_scale_key,
+                                    scale_key,
+                                    df,
+                                    chunk_size,
+                                    downsample_method,
+                                    sharding=True,
+                                    shard_bits_list=sharding_list[k]))
+            await asyncio.wait_for(task, None)
