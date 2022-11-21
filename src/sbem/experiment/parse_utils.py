@@ -48,8 +48,10 @@ def get_tile_spec_from_SBEMtile(sbem_root_dir: str, tile: dict, resolution_xy: f
     :param resolution_xy: tile resolution.
     :return: dict with the tile spec.
     """
+    tileid_split = tile["tileid"].split(".")
     tile_spec = {
-        "tile_id": int(tile["tileid"].split(".")[1]),
+        "tile_id": int(tileid_split[1]),
+        "grid_num": int(tileid_split[0]),
         "tile_file": join(sbem_root_dir, tile["filename"]),
         "x": float(tile["glob_x"]) // resolution_xy,
         "y": float(tile["glob_y"]) // resolution_xy,
@@ -58,7 +60,10 @@ def get_tile_spec_from_SBEMtile(sbem_root_dir: str, tile: dict, resolution_xy: f
     return tile_spec
 
 
-def read_tile_metadata(sbem_root_dir: str, metadata_path: str, resolution_xy: float):
+def read_tile_metadata(sbem_root_dir: str,
+                       metadata_path: str,
+                       tile_grid_num: int,
+                       resolution_xy: float):
     """
     Parse an SBEM metadata file and return all tile-specs as a list.
 
@@ -71,9 +76,9 @@ def read_tile_metadata(sbem_root_dir: str, metadata_path: str, resolution_xy: fl
     with open(metadata_path) as f:
         for t in filter(lambda l: l.startswith("TILE"), f.readlines()):
             tile = json.loads(t[6:-1].replace("'", '"'))
-            content.append(
-                get_tile_spec_from_SBEMtile(sbem_root_dir, tile, resolution_xy)
-            )
+            tile_spec = get_tile_spec_from_SBEMtile(sbem_root_dir, tile, resolution_xy)
+            if tile_spec["grid_num"] == tile_grid_num:
+                content.append(tile_spec)
 
     return content
 
@@ -100,7 +105,8 @@ def get_tile_metadata(
         config = get_acquisition_config(mf)
         grid_pixel_size = config["pixel_sizes"][tile_grid_num]
         if grid_pixel_size == resolution_xy:
-            tile_specs += read_tile_metadata(sbem_root_dir, mf, resolution_xy)
+            tile_specs += read_tile_metadata(sbem_root_dir, mf, tile_grid_num,
+                                             resolution_xy)
         else:
             print("Acquisition parameters changed. Only returning first stack.")
             return tile_specs

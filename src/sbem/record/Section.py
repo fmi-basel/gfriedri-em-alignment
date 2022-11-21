@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from os.path import exists, join
 from typing import TYPE_CHECKING, Union
 
@@ -334,3 +335,7 @@ class Section(Info):
 
     def set_alignment_mesh(self, path: str):
         self._alignment_mesh = path
+
+    def delete_dir(self):
+        section_dir = self.get_section_dir()
+        shutil.rmtree(section_dir)
