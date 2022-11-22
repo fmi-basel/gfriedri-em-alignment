@@ -7,7 +7,7 @@ from unittest import TestCase
 import numpy as np
 from numpy.testing import assert_array_equal
 from ruyaml import YAML
-from tifffile import imsave
+from tifffile import imwrite
 
 from sbem.experiment.Experiment import Experiment
 from sbem.record.Author import Author
@@ -23,7 +23,7 @@ class ExperimentTest(TestCase):
 
         self.img = np.random.randint(0, 3200, size=(1320, 3021), dtype=np.uint16)
 
-        imsave(join(self.tmp_dir, "img.tif"), self.img)
+        imwrite(join(self.tmp_dir, "img.tif"), self.img)
 
     def tearDown(self) -> None:
         shutil.rmtree(self.tmp_dir)
