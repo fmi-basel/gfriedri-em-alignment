@@ -41,7 +41,7 @@ class VolumeTest(TestCase):
         assert vol.get_dir() == join(self.tmp_dir, "test-volume")
         assert_array_equal(vol.get_origin(), np.array([0, 0, 0]))
         assert vol.get_zarr_volume().chunk_store.dir_path() == join(
-            self.tmp_dir, "test-volume", "ngff_volume.zarr"
+            self.tmp_dir, "test-volume", "ngff_volume.zarr/"
         )
 
         self.assertRaises(
@@ -80,7 +80,7 @@ class VolumeTest(TestCase):
         assert vol.get_dir() == join(self.tmp_dir, "test-volume1")
         assert_array_equal(vol.get_origin(), np.array([0, 0, 0]))
         assert vol.get_zarr_volume().chunk_store.dir_path() == join(
-            self.tmp_dir, "test-volume1", "ngff_volume.zarr"
+            self.tmp_dir, "test-volume1", "ngff_volume.zarr/"
         )
 
     def test_write_section(self):
