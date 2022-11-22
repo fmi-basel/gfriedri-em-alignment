@@ -12,7 +12,7 @@ from sbem.record.Section import Section
 if TYPE_CHECKING:  # pragma: no cover
     from typing import Dict
 
-    from sbem.experiment.Experiment_v2 import Experiment
+    from sbem.experiment.Experiment import Experiment
 
 
 class Sample(Info):
@@ -52,8 +52,6 @@ class Sample(Info):
                 self._min_section_num[grid_num] = section.get_section_num()
             elif self._max_section_num[grid_num] < section.get_section_num():
                 self._max_section_num[grid_num] = section.get_section_num()
-            else:  # pragma: no cover
-                pass
 
     def get_section(self, section_name: str) -> Section:
         if section_name in self.sections.keys():
@@ -115,15 +113,11 @@ class Sample(Info):
         sections.sort(key=lambda s: s.get_section_num())
         return sections
 
-    def to_dict(self,
-                section_to_subdir: bool = True,
-                sort_sections: bool = False) -> Dict:
+    def to_dict(
+        self, section_to_subdir: bool = True, sort_sections: bool = False
+    ) -> Dict:
         sections = []
-        section_vals = self.sections.values()
-        if sort_sections:
-            section_vals = sorted(section_vals,
-                                  key=lambda s: s.get_section_num())
-        for s in section_vals:
+        for s in sorted(self.sections.values(), key=lambda s: s.get_section_num()):
             sec_dict = {
                 "name": s.get_name(),
                 "section_num": s.get_section_num(),
@@ -149,20 +143,20 @@ class Sample(Info):
             "sections": sections,
         }
 
-    def delete_sections(self, start_section_num: int,
-                        end_section_num: int,
-                        tile_grid_num: int,
-                        ):
-        sections = self.get_section_range(start_section_num,
-                                          end_section_num,
-                                          tile_grid_num,
-                                          include_skipped=True)
+    def delete_sections(
+        self,
+        start_section_num: int,
+        end_section_num: int,
+        tile_grid_num: int,
+    ):
+        sections = self.get_section_range(
+            start_section_num, end_section_num, tile_grid_num, include_skipped=True
+        )
         for section in sections:
             section.delete_dir()
             del self.sections[section.get_name()]
 
-        out_path = join(self._experiment.get_root_dir(),
-                        self._experiment.get_name())
+        out_path = join(self._experiment.get_root_dir(), self._experiment.get_name())
         self.save(out_path, overwrite=True, sample_yaml_only=True)
 
     def _save_sections(self, root: str, sec_dicts: Dict, overwrite: bool = False):
@@ -170,34 +164,44 @@ class Sample(Info):
             s = self.sections.get(sec_dict["name"])
             s.save(root, overwrite=overwrite)
 
-    def _dump(self, path: str, overwrite: bool = False,
-              section_to_subdir: bool = True,
-              sort_sections: bool = False,
-              sample_yaml_only: bool = False):
+    def _dump(
+        self,
+        path: str,
+        overwrite: bool = False,
+        section_to_subdir: bool = True,
+        sort_sections: bool = False,
+        sample_yaml_only: bool = False,
+    ):
         yaml = YAML(typ="rt")
-        data = self.to_dict(section_to_subdir=section_to_subdir,
-                            sort_sections=sort_sections)
+        data = self.to_dict(
+            section_to_subdir=section_to_subdir, sort_sections=sort_sections
+        )
         with open(join(path, "sample.yaml"), "w") as f:
             yaml.dump(data, f)
 
         if not sample_yaml_only:
             if len(data["sections"]) > 0 and isinstance(
                 data["sections"][0]["details"], str
-                ):
+            ):
                 self._save_sections(path, data["sections"], overwrite=overwrite)
 
-    def save(self, path: str, overwrite: bool = False,
-             section_to_subdir: bool = True,
-             sort_sections: bool = False,
-             sample_yaml_only: bool = False):
+    def save(
+        self,
+        path: str,
+        overwrite: bool = False,
+        section_to_subdir: bool = True,
+        sort_sections: bool = False,
+        sample_yaml_only: bool = False,
+    ):
         out_path = join(path, self.get_name())
         if not exists(out_path):
             os.makedirs(out_path, exist_ok=True)
             self._dump(
-                path=out_path, overwrite=overwrite,
+                path=out_path,
+                overwrite=overwrite,
                 section_to_subdir=section_to_subdir,
                 sort_sections=sort_sections,
-                sample_yaml_only=sample_yaml_only
+                sample_yaml_only=sample_yaml_only,
             )
         else:
             if overwrite:
@@ -206,7 +210,7 @@ class Sample(Info):
                     overwrite=overwrite,
                     section_to_subdir=section_to_subdir,
                     sort_sections=sort_sections,
-                    sample_yaml_only=sample_yaml_only
+                    sample_yaml_only=sample_yaml_only,
                 )
 
     @staticmethod
