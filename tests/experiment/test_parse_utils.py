@@ -109,7 +109,7 @@ class ParseUtilsTest(TestCase):
         exp_path = "/tmp/experiment"
         resolution_xy = 11.0
 
-        result = read_tile_metadata(exp_path, self.metadata_path, resolution_xy)
+        result = read_tile_metadata(exp_path, self.metadata_path, 1, resolution_xy)
 
         assert len(result) == 1
         assert result[0]["tile_id"] == 431
