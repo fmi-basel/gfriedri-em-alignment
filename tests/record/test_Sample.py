@@ -410,3 +410,220 @@ class SectionTest(TestCase):
         )
         assert len(sec_range) == 1
         assert sec_range[0] == sec_4
+
+    def test_delete_sections_no_dir(self):
+        sample = Sample(None, "sample", "Desc", "Docu", None)
+
+        Section(
+            sample=sample,
+            name="2",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=2,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="3",
+            stitched=False,
+            skip=True,
+            acquisition="run_0",
+            section_num=3,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="1",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=1,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="4",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=4,
+            tile_grid_num=2,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="5",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=5,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sample.save(self.tmp_dir, overwrite=True, section_to_subdir=False)
+
+        assert exists(join(self.tmp_dir, sample.get_name()))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "1"))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "2"))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "3"))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "4"))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "5"))
+
+        yaml = YAML(typ="rt")
+        with open(join(self.tmp_dir, sample.get_name(), "sample.yaml")) as f:
+            dict = yaml.load(f)
+
+        for sec, name in zip(dict["sections"], ["1", "2", "3", "4", "5"]):
+            assert sec["name"] == name
+
+        secs_to_delete = sample.delete_sections(2, 3, 1)
+        assert secs_to_delete == ["2", "3"]
+
+        sample.save(self.tmp_dir, overwrite=True, section_to_subdir=False)
+
+        assert exists(join(self.tmp_dir, sample.get_name()))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "1"))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "4"))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "5"))
+
+        yaml = YAML(typ="rt")
+        with open(join(self.tmp_dir, sample.get_name(), "sample.yaml")) as f:
+            dict = yaml.load(f)
+
+        for sec, name in zip(dict["sections"], ["1", "4", "5"]):
+            assert sec["name"] == name
+
+    def test_delete_sections_dir(self):
+        sample = Sample(None, "sample", "Desc", "Docu", None)
+
+        Section(
+            sample=sample,
+            name="2",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=2,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="3",
+            stitched=False,
+            skip=True,
+            acquisition="run_0",
+            section_num=3,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="1",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=1,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="4",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=4,
+            tile_grid_num=2,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        Section(
+            sample=sample,
+            name="5",
+            stitched=False,
+            skip=False,
+            acquisition="run_0",
+            section_num=5,
+            tile_grid_num=1,
+            thickness=11.1,
+            tile_height=123,
+            tile_width=123,
+            tile_overlap=2,
+        )
+
+        sample.save(self.tmp_dir, overwrite=True, section_to_subdir=True)
+
+        assert exists(join(self.tmp_dir, sample.get_name()))
+        assert exists(join(self.tmp_dir, sample.get_name(), "1"))
+        assert exists(join(self.tmp_dir, sample.get_name(), "2"))
+        assert exists(join(self.tmp_dir, sample.get_name(), "3"))
+        assert exists(join(self.tmp_dir, sample.get_name(), "4"))
+        assert exists(join(self.tmp_dir, sample.get_name(), "5"))
+
+        yaml = YAML(typ="rt")
+        with open(join(self.tmp_dir, sample.get_name(), "sample.yaml")) as f:
+            dict = yaml.load(f)
+
+        for sec, name in zip(dict["sections"], ["1", "2", "3", "4", "5"]):
+            assert sec["name"] == name
+
+        secs_to_delete = sample.delete_sections(2, 3, 1)
+        for d in secs_to_delete:
+            shutil.rmtree(join(self.tmp_dir, sample.get_name(), d))
+
+        sample.save(self.tmp_dir, overwrite=True, section_to_subdir=True)
+
+        assert exists(join(self.tmp_dir, sample.get_name()))
+        assert exists(join(self.tmp_dir, sample.get_name(), "1"))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "2"))
+        assert not exists(join(self.tmp_dir, sample.get_name(), "3"))
+        assert exists(join(self.tmp_dir, sample.get_name(), "4"))
+        assert exists(join(self.tmp_dir, sample.get_name(), "5"))
+
+        yaml = YAML(typ="rt")
+        with open(join(self.tmp_dir, sample.get_name(), "sample.yaml")) as f:
+            dict = yaml.load(f)
+
+        for sec, name in zip(dict["sections"], ["1", "4", "5"]):
+            assert sec["name"] == name
+
+        assert sample.get_section("1").get_section_dir() is None

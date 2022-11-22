@@ -113,9 +113,7 @@ class Sample(Info):
         sections.sort(key=lambda s: s.get_section_num())
         return sections
 
-    def to_dict(
-        self, section_to_subdir: bool = True, sort_sections: bool = False
-    ) -> Dict:
+    def to_dict(self, section_to_subdir: bool = True) -> Dict:
         sections = []
         for s in sorted(self.sections.values(), key=lambda s: s.get_section_num()):
             sec_dict = {
@@ -152,12 +150,13 @@ class Sample(Info):
         sections = self.get_section_range(
             start_section_num, end_section_num, tile_grid_num, include_skipped=True
         )
+
+        section_names = []
         for section in sections:
-            section.delete_dir()
+            section_names.append(section.get_name())
             del self.sections[section.get_name()]
 
-        out_path = join(self._experiment.get_root_dir(), self._experiment.get_name())
-        self.save(out_path, overwrite=True, sample_yaml_only=True)
+        return section_names
 
     def _save_sections(self, root: str, sec_dicts: Dict, overwrite: bool = False):
         for sec_dict in sec_dicts:
@@ -169,13 +168,10 @@ class Sample(Info):
         path: str,
         overwrite: bool = False,
         section_to_subdir: bool = True,
-        sort_sections: bool = False,
         sample_yaml_only: bool = False,
     ):
         yaml = YAML(typ="rt")
-        data = self.to_dict(
-            section_to_subdir=section_to_subdir, sort_sections=sort_sections
-        )
+        data = self.to_dict(section_to_subdir=section_to_subdir)
         with open(join(path, "sample.yaml"), "w") as f:
             yaml.dump(data, f)
 
@@ -190,7 +186,6 @@ class Sample(Info):
         path: str,
         overwrite: bool = False,
         section_to_subdir: bool = True,
-        sort_sections: bool = False,
         sample_yaml_only: bool = False,
     ):
         out_path = join(path, self.get_name())
@@ -200,7 +195,6 @@ class Sample(Info):
                 path=out_path,
                 overwrite=overwrite,
                 section_to_subdir=section_to_subdir,
-                sort_sections=sort_sections,
                 sample_yaml_only=sample_yaml_only,
             )
         else:
@@ -209,7 +203,6 @@ class Sample(Info):
                     path=out_path,
                     overwrite=overwrite,
                     section_to_subdir=section_to_subdir,
-                    sort_sections=sort_sections,
                     sample_yaml_only=sample_yaml_only,
                 )
 
