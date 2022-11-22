@@ -156,7 +156,8 @@ class ParseUtilsTest(TestCase):
         assert sec.get_tile_height() == 2304
         assert not sec.is_stitched()
         assert not sec.skip()
-        assert sec.get_alignment_mesh() is None
+        sec.set_alignment_mesh("/a/path/mesh.npz")
+        assert sec.get_alignment_mesh() == "/a/path/mesh.npz"
         assert len(sec.tiles) == 1
 
         tile = sec.get_tile(431)
