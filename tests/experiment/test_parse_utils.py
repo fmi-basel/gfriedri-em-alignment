@@ -109,7 +109,7 @@ class ParseUtilsTest(TestCase):
         exp_path = "/tmp/experiment"
         resolution_xy = 11.0
 
-        result = read_tile_metadata(exp_path, self.metadata_path, resolution_xy)
+        result = read_tile_metadata(exp_path, self.metadata_path, 1, resolution_xy)
 
         assert len(result) == 1
         assert result[0]["tile_id"] == 431
@@ -156,7 +156,8 @@ class ParseUtilsTest(TestCase):
         assert sec.get_tile_height() == 2304
         assert not sec.is_stitched()
         assert not sec.skip()
-        assert sec.get_alignment_mesh() is None
+        sec.set_alignment_mesh("/a/path/mesh.npz")
+        assert sec.get_alignment_mesh() == "/a/path/mesh.npz"
         assert len(sec.tiles) == 1
 
         tile = sec.get_tile(431)

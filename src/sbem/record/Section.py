@@ -329,8 +329,10 @@ class Section(Info):
 
         return sec
 
+    @_Decorator.is_initialized
     def get_alignment_mesh(self) -> str:
         return self._alignment_mesh
 
+    @_Decorator.is_initialized
     def set_alignment_mesh(self, path: str):
         self._alignment_mesh = path
