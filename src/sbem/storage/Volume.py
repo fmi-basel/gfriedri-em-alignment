@@ -271,7 +271,7 @@ class Volume(ReferenceMixin, Info):
         )
         vol._section_list = data["sections"]
         vol._section_offset_map = {k: np.array(v) for k, v in data["offsets"].items()}
-        vol._section_shape_map = {k: np.array(v) for k, v in data["shapes"].items()}
+        vol._section_shape_map = {k: tuple(v) for k, v in data["shapes"].items()}
         vol._origin = np.array(data["origin"])
         return vol
 
