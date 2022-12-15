@@ -184,7 +184,14 @@ def render_tiles(
     use_clahe: bool = False,
     clahe_kwargs: ... = None,
 ):
-    tile_map = section.get_tile_data_map()
+    path = join(
+        section.get_sample().get_experiment().get_root_dir(),
+        section.get_sample().get_experiment().get_name(),
+        section.get_sample().get_name(),
+        section.get_name(),
+        "tile_id_map.json",
+    )
+    tile_map = section.get_tile_data_map(path=path, indexing="xy")
     mesh_path = join(
         section.get_sample().get_experiment().get_root_dir(),
         section.get_sample().get_experiment().get_name(),
