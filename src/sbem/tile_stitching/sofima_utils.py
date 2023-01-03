@@ -45,6 +45,7 @@ def default_sofima_config():
 
 def register_tiles(
     section: Section,
+    section_dir: str,
     stride: int,
     overlaps_x: tuple,
     overlaps_y: tuple,
@@ -62,10 +63,7 @@ def register_tiles(
     logger=logging.getLogger("load_sections"),
 ):
     tim_path = join(
-        section.get_sample().get_experiment().get_root_dir(),
-        section.get_sample().get_experiment().get_name(),
-        section.get_sample().get_name(),
-        section.get_name(),
+        section_dir,
         "tile_id_map.json",
     )
     tile_space = section.get_tile_id_map(path=tim_path).shape
@@ -165,10 +163,7 @@ def register_tiles(
     meshes = {idx_to_key[i]: np.array(x[:, i : i + 1]) for i in range(x.shape[1])}
 
     mesh_path = join(
-        section.get_sample().get_experiment().get_root_dir(),
-        section.get_sample().get_experiment().get_name(),
-        section.get_sample().get_name(),
-        section.get_name(),
+        section_dir,
         "meshes.npz",
     )
     np.savez(mesh_path, **{str(k): v for k, v in meshes.items()})
@@ -178,6 +173,7 @@ def register_tiles(
 
 def render_tiles(
     section: Section,
+    section_dir: str,
     stride,
     margin=50,
     parallelism=1,
@@ -185,18 +181,12 @@ def render_tiles(
     clahe_kwargs: ... = None,
 ):
     path = join(
-        section.get_sample().get_experiment().get_root_dir(),
-        section.get_sample().get_experiment().get_name(),
-        section.get_sample().get_name(),
-        section.get_name(),
+        section_dir,
         "tile_id_map.json",
     )
     tile_map = section.get_tile_data_map(path=path, indexing="xy")
     mesh_path = join(
-        section.get_sample().get_experiment().get_root_dir(),
-        section.get_sample().get_experiment().get_name(),
-        section.get_sample().get_name(),
-        section.get_name(),
+        section_dir,
         "meshes.npz",
     )
     if exists(mesh_path):
