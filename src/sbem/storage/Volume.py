@@ -39,6 +39,7 @@ class Volume(ReferenceMixin, Info):
         license: str = "Creative Commons Attribution licence (CC BY)",
         cite: List[Citation] = [],
         logger=logging,
+        save=True,
     ):
         super().__init__(name=name, license=license, authors=authors, cite=cite)
         self._description = description
@@ -60,7 +61,8 @@ class Volume(ReferenceMixin, Info):
         self.zarr_root = zarr.group(store=store)
         self.scaler = Scaler(max_layer=0)
 
-        self.save()
+        if save:
+            self.save()
 
     def remove_section(self, section_num: int):
         index = self._section_list.index(section_num)
@@ -268,6 +270,7 @@ class Volume(ReferenceMixin, Info):
                 Citation(doi=d["doi"], text=d["text"], url=d["url"])
                 for d in data["cite"]
             ],
+            save=False,
         )
         vol._section_list = data["sections"]
         vol._section_offset_map = {k: np.array(v) for k, v in data["offsets"].items()}
