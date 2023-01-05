@@ -50,6 +50,7 @@ def register_tiles(
     overlaps_x: tuple,
     overlaps_y: tuple,
     min_overlap: int,
+    min_range: tuple = (10, 100, 0),
     patch_size: tuple = (120, 120),
     batch_size: int = 8000,
     min_peak_ratio: float = 1.4,
@@ -73,6 +74,7 @@ def register_tiles(
         tile_map,
         overlaps_xy=(overlaps_x, overlaps_y),
         min_overlap=min_overlap,
+        min_range=min_range,
     )
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
     cx = np.squeeze(cx, axis=1)
