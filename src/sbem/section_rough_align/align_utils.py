@@ -38,10 +38,41 @@ def downsample_image(img, factor):
 
 def crop_image_center(img, dx, dy):
     img_shape = img.shape
+    result_size = np.array([dy*2, dx*2])
+    margin = img_shape - result_size
+    if any(margin < 0):
+        # if cropped region is larger than the image
+        # pad the image with zero while keeping the
+        # center invariant
+        p = np.max(-margin)
+        img = np.pad(img, ((p, p), (p, p)))
+        img_shape = img.shape
+
     center = np.array(img_shape) // 2
     cropped = img[center[0]-dy:center[0]+dy,
-            center[1]-dx:center[1]+dx]
+                  center[1]-dx:center[1]+dx]
+
     return cropped, center
+
+
+def crop_image_top_left(img, dx, dy, margin=20):
+    img_shape = img.shape
+    result_size = np.array([dy*2, dx*2])
+    margin = img_shape - result_size
+    if any(margin < 0):
+        # if cropped region is larger than the image
+        # pad the image with zero while keeping the
+        # center invariant
+        p = np.max(-margin)
+        img = np.pad(img, ((0, p), (0, p)))
+        img_shape = img.shape
+
+    center = np.array([dy, dx])
+    cropped = img[center[0]-dy:center[0]+dy,
+                  center[1]-dx:center[1]+dx]
+
+    return cropped, center
+
 
 
 def estimate_offset(pre, post, align_config):
@@ -59,6 +90,7 @@ def save_offset(xyo, pr, save_path):
 
 
 def estimate_offset_and_save(pre_store, post_store, align_config, offset_path,
+                             crop_type='center',
                              margin=50,
                              min_diff_thresh=40,
                              debug=False):
@@ -83,8 +115,13 @@ def estimate_offset_and_save(pre_store, post_store, align_config, offset_path,
     prs = []
     crop_size_list = []
     for crop_size in align_config.crop_sizes:
-        pre_cropped, pre_ctr = crop_image_center(pre, *crop_size)
-        post_cropped, post_ctr = crop_image_center(post, *crop_size)
+        if align_config.crop_type == 'center':
+            pre_cropped, pre_ctr = crop_image_center(pre, *crop_size)
+            post_cropped, post_ctr = crop_image_center(post, *crop_size)
+        elif align_config.crop_type == 'top_left':
+            pre_cropped, pre_ctr = crop_image_top_left(pre, *crop_size)
+            post_cropped, post_ctr = crop_image_top_left(post, *crop_size)
+
 
         if align_config.downsample:
             dsf = align_config.downsample_factors
