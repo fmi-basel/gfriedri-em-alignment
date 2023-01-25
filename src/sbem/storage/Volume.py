@@ -340,6 +340,15 @@ class Volume(ReferenceMixin, Info):
         for offsets in self._section_offset_map.values():
             offsets[axis] += shift
 
+    def get_section_list(self):
+        return self._section_list
+
+    def get_section_offset_map(self):
+        return self._section_offset_map
+
+    def get_section_shape_map(self):
+        return self._section_shape_map
+
     def get_section_origin(self, section_num: int):
         return self._origin + self._section_offset_map[section_num]
 
@@ -356,6 +365,9 @@ class Volume(ReferenceMixin, Info):
 
     def get_dir(self):
         return join(self._root_dir, self.get_name())
+
+    def get_data_path(self):
+        return self._data_path
 
     def get_origin(self):
         return self._origin

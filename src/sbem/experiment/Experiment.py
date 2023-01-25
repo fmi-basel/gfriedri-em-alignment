@@ -43,13 +43,13 @@ class Experiment(ReferenceMixin, Info):
         if self._root_dir is not None:
             os.makedirs(self._root_dir, exist_ok=exist_ok)
 
-        if exists(join(self._root_dir, self.get_name(), ".git")):
-            with git.Repo(join(self._root_dir, self.get_name())) as r:
-                assert not r.is_dirty(), (
-                    "[git-error]: Resolve untracked "
-                    "changes before loading the "
-                    "experiment."
-                )
+        # if exists(join(self._root_dir, self.get_name(), ".git")):
+        #     with git.Repo(join(self._root_dir, self.get_name())) as r:
+        #         assert not r.is_dirty(), (
+        #             "[git-error]: Resolve untracked "
+        #             "changes before loading the "
+        #             "experiment."
+        #         )
 
     def add_sample(self, sample: Sample):
         if sample.get_experiment() is None:
