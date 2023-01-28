@@ -59,6 +59,7 @@ class Volume(ReferenceMixin, Info):
 
         store = parse_url(self._data_path, mode="w").store
         self.zarr_root = zarr.group(store=store)
+
         self.scaler = Scaler(max_layer=0)
 
         if save:
@@ -353,7 +354,7 @@ class Volume(ReferenceMixin, Info):
         return self._origin + self._section_offset_map[section_num]
 
     def get_section_data(self, section_num: int):
-        z, y, x = self._section_offset_map[section_num]
+        z, y, x = self.get_section_origin(section_num)
         zs, ys, xs = self._section_shape_map[section_num]
         return self.get_zarr_volume()["0"][z : z + zs, y : y + ys, x : x + xs]
 
@@ -365,9 +366,6 @@ class Volume(ReferenceMixin, Info):
 
     def get_dir(self):
         return join(self._root_dir, self.get_name())
-
-    def get_data_path(self):
-        return self._data_path
 
     def get_origin(self):
         return self._origin

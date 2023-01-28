@@ -9,7 +9,62 @@ from skimage.transform import downscale_local_mean
 from skimage.io import imsave
 from sofima import stitch_rigid
 from sbem.experiment import Experiment
-from sbem.tile_stitching.sofima_utils import load_sections
+from sbem.storage.Volume import Volume
+
+
+def load_volumes(volume_paths):
+    volumes = []
+    for volume_path in volume_paths:
+        volumes.append(Volume.load(volume_path))
+    return volumes
+
+
+def get_sections(
+    exp_path: str,
+    sample_name: str,
+    acquisition: str,
+    tile_grid_num: int,
+    start_section_num: int,
+    end_section_num: int,
+    ):
+    logger = logging.getLogger("get_sections")
+    logger.info(f"Loading experiment {exp_path}")
+    exp = Experiment.load(path=exp_path)
+    logger.info(f"Sample: {sample_name} of acquisition {acquisition}")
+    logger.info(f"Retrieving sections {start_section_num} to {end_section_num}.")
+    if start_section_num is not None and end_section_num is not None:
+        sections = exp.get_sample(sample_name).get_section_range(
+            start_section_num=start_section_num,
+            end_section_num=end_section_num,
+            tile_grid_num=tile_grid_num,
+            include_skipped=False,
+        )
+    else:
+        sections = exp.get_sample(sample_name).get_sections_of_acquisition(
+            acquisition=acquisition, tile_grid_num=tile_grid_num, include_skipped=False
+        )
+
+    section_paths = []
+    path = os.path.join(
+        sections[0].get_sample().get_experiment().get_root_dir(),
+        sections[0].get_sample().get_experiment().get_name(),
+        sections[0].get_sample().get_name(),
+    )
+    for s in sections:
+        section_paths.append(
+            {
+                "name": s.get_name(),
+                "stitched": s.is_stitched(),
+                "skip": s.skip(),
+                "acquisition": s.get_acquisition(),
+                "section_num": s.get_section_num(),
+                "tile_grid_num": s.get_tile_grid_num(),
+                "details": "",
+                "path": path,
+            }
+        )
+
+    return section_paths
 
 
 def load_json(path):
@@ -24,11 +79,7 @@ def load_n5(path):
 
 
 def load_from_store(store_dict):
-    store = parse_url(store_dict["data_path"], mode="r").store
-    zarr_root = zarr.group(store=store)
-    z, y, x = store_dict['offset'] + store_dict['origin']
-    zs, ys, xs = store_dict['shape']
-    img = zarr_root["0"][z : z + zs, y : y + ys, x : x + xs]
+    img = store_dict["volume"].get_section_data(store_dict["section_num"])
     return img
 
 
@@ -208,9 +259,13 @@ def get_pair_name(section_pair):
     return f"{section_pair[0]['section_num']}_{section_pair[1]['section_num']}"
     # return f"{section_pair[0].get_name()}_{section_pair[1].get_name()}"
 
+def get_section_stores(section_dicts, volumes, logger=None):
+    sec_store = summarize_sections_in_volumes(volumes, logger=logger)
+    section_stores = [find_section_store(sd, sec_store, logger=logger)
+                      for sd in section_dicts]
+    return section_stores
 
-def load_offsets(offset_dir, load_sections_config):
-    sections = load_sections(**load_sections_config.to_dict())
+def load_offsets(sections, offset_dir):
     section_pairs = get_section_pairs(sections)
 
     xyo_list = []
@@ -231,7 +286,7 @@ def load_offsets(offset_dir, load_sections_config):
         xyo_list.append(xyo)
 
     xy_offsets = np.array(xyo_list)
-    return xy_offsets, sections
+    return xy_offsets
 
 
 def offsets_to_coords(xy_offsets, non_neg=True):
@@ -244,7 +299,7 @@ def offsets_to_coords(xy_offsets, non_neg=True):
 
 
 def save_coords(coord_file, sections, xy_offsets, xy_coords):
-    section_numbers = [s.section_id[0] for s in sections]
+    section_numbers = [s["section_num"] for s in sections]
     coord_result = dict(section_numbers=section_numbers,
                         xy_offsets=xy_offsets.tolist(),
                         xy_coords=xy_coords.tolist())
@@ -282,11 +337,10 @@ def summarize_sections_in_volumes(volumes, logger=None):
         offset_map = v.get_section_offset_map()
         shape_map = v.get_section_shape_map()
         origin = v.get_origin()
-        data_path = v.get_data_path()
 
         for key, val in offset_map.items():
             if key not in sec_store:
-                sec_store[key] = dict(data_path=data_path,
+                sec_store[key] = dict(volume=v,
                                       origin=origin,
                                       offset=val,
                                       shape=shape_map[key])
