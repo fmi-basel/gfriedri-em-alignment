@@ -91,6 +91,7 @@ def crop_image_center(img, dx, dy):
     img_shape = img.shape
     result_size = np.array([dy*2, dx*2])
     margin = img_shape - result_size
+    p = 0
     if any(margin < 0):
         # if cropped region is larger than the image
         # pad the image with zero while keeping the
@@ -98,10 +99,11 @@ def crop_image_center(img, dx, dy):
         p = np.max(-margin)
         img = np.pad(img, ((p, p), (p, p)))
         img_shape = img.shape
-
     center = np.array(img_shape) // 2
+
     cropped = img[center[0]-dy:center[0]+dy,
                   center[1]-dx:center[1]+dx]
+    center = np.array(img_shape) // 2 - p
 
     return cropped, center
 
@@ -231,6 +233,10 @@ def estimate_offset_and_save(pre_store, post_store, align_config, offset_path,
 
     if not done:
         raise Exception("No match found.")
+
+    if align_config.downsample:
+        xyo = np.multiply(xyo, align_config.downsample_factors)
+
     # Offset w.r.t top-let corner of each image
     ctr_diff = pre_ctr - post_ctr
     xyo = xyo + np.flip(ctr_diff)
@@ -239,8 +245,6 @@ def estimate_offset_and_save(pre_store, post_store, align_config, offset_path,
         print(f"center diff: {ctr_diff}")
         print(f"xyo: {xyo}")
 
-    if align_config.downsample:
-        xyo = np.multiply(xyo, align_config.downsample_factors)
     save_offset(xyo, pr, offset_path)
 
 

@@ -1,12 +1,15 @@
 import os
+import json
 import numpy as np
 import tensorstore as ts
+from numpy.typing import ArrayLike
 from ruyaml import YAML
 from numcodecs import Blosc
 from ome_zarr.writer import write_image
 from sbem.record.Author import Author
 from sbem.record.Citation import Citation
 from sbem.storage.Volume import Volume
+from connectomics.common import bounding_box
 
 class VolumeTs(Volume):
     def __init__(self, *args, **kwargs):
@@ -61,10 +64,10 @@ class VolumeTs(Volume):
 
     async def open_dataset_write(self):
         dataset_future = ts.open({
-        'driver': 'zarr',
-        'kvstore': {
-            'driver': 'file',
-            'path': self.get_dataset_path()
+        "driver": "zarr",
+        "kvstore": {
+            "driver": "file",
+            "path": self.get_dataset_path()
             },
         })
         self.dataset_write = await dataset_future
@@ -95,7 +98,7 @@ class VolumeTs(Volume):
         # Use ome-zarr to write the first image
         # so that the metadata is initiated
         write_image(
-            image=np.zeros((1, 10, 10), dtype=np.uint8),
+            image=np.zeros((100, 100, 100), dtype=np.uint8),
             group=self.zarr_root,
             scaler=self.scaler,
             axes="zyx",
@@ -104,48 +107,40 @@ class VolumeTs(Volume):
                 compressor=Blosc(cname="zstd", clevel=3, shuffle=Blosc.SHUFFLE),
                 overwrite=delete_existing,
                 ))
+        self.zarr_root["0"].resize(volume_size)
+
+        metafile = os.path.join(self.get_dataset_path(), ".zarray")
+        with open(metafile, "r") as f:
+            array_dict = json.load(f)
+
+        array_dict["dimension_separator"] =  "/"
+
+        with open(metafile, "w") as f:
+            array_dict = json.dump(array_dict, f, indent=4)
+
+        await self.open_dataset_write()
 
 
-    #     spec = {
-    #         "driver": "zarr",
-    #         "kvstore": {"driver": "file",
-    #                     "path": self.self.get_dataset_path()
-    #                     },
-    #         "scale_metadata": {
-    #             "size": size,
-    #             "encoding": "raw",
-    #             "chunk_size": chunk_size,
-    #             "resolution": resolution,
-    #             },
-    #         "create": True,
-    #         "delete_existing": delete_existing
-    #         }
-
-    #     dataset_future = ts.open(spec)
-    #     self.dataset = await dataset_future
-
-
-            # axes="zyx",
-            #     storage_options=dict(
-            #         chunks=(1, 2744, 2744),
-            #         compressor=Blosc(cname="zstd", clevel=3, shuffle=Blosc.SHUFFLE),
-            #         overwrite=True,
-            #     ),
-
-# {
-#   "zarr_format": 2,
-#   "shape": [1000, 2000, 3000],
-#   "chunks": [100, 200, 300],
-#   "dtype": [["x", "<u2", [2, 3]], ["y", "<f4", [5]]],
-#   "compressor": {"id": "blosc", "cname": "lz4", "clevel": 5, "shuffle": 1},
-#   "fill_value": "AQACAAMABAAFAAYAAAAgQQAAMEEAAEBBAABQQQAAYEE=",
-#   "order": "F",
-#   "filters": null
-# }
-    async def get_section_data(self, section_num: int):
+    def get_section_bounding_box(self, section_num:int):
         z, y, x = self.get_section_origin(section_num)
         zs, ys, xs = self._section_shape_map[section_num]
-        return self.dataset_read[z : z + zs, y : y + ys, x : x + xs]
+        sbox = bounding_box.BoundingBox(start=(z, y, x),
+                                        size=(zs, ys, xs))
+        return sbox
+
+
+    async def write_section(self, section_num:int, img: ArrayLike):
+        sbox = self.get_section_bounding_box(section_num)
+        self.dataset_write[sbox.start[0]:sbox.end[0],
+                                 sbox.start[1]:sbox.end[1],
+                                 sbox.start[2]:sbox.end[2]] = img
+
+
+    async def get_section_data(self, section_num: int):
+        sbox = self.get_section_bounding_box(section_num)
+        return self.dataset_read[sbox.start[0]:sbox.end[0],
+                                 sbox.start[1]:sbox.end[1],
+                                 sbox.start[2]:sbox.end[2]]
 
 
     def set_sections(self, sections, xy_coords):
