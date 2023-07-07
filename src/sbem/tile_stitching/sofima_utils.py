@@ -7,7 +7,6 @@ import jax.numpy as jnp
 import numpy as np
 from sofima import flow_utils, mesh, stitch_elastic, stitch_rigid, warp
 
-from sbem.experiment.Experiment import Experiment
 from sbem.record.Section import Section
 
 
@@ -150,7 +149,12 @@ def register_tiles(
     data_y = (cy, fine_y, offsets_y)
 
     fx, fy, x, nbors, key_to_idx = stitch_elastic.aggregate_arrays(
-        data_x, data_y, tile_map, coarse_mesh[:, 0, ...], stride=(stride, stride)
+        data_x,
+        data_y,
+        tile_map,
+        coarse_mesh[:, 0, ...],
+        stride=(stride, stride),
+        tile_shape=next(iter(tile_map.values())).shape,
     )
 
     @jax.jit
@@ -169,7 +173,6 @@ def register_tiles(
         "meshes.npz",
     )
     np.savez(mesh_path, **{str(k): v for k, v in meshes.items()})
-    section.set_alignment_mesh(mesh_path)
     return mesh_path
 
 
@@ -208,16 +211,3 @@ def render_tiles(
         return stitched, mask
     else:
         return None, None
-
-
-def load_sections(exp: Experiment, sample_name: str, tile_grid_num: int):
-    sample = exp.get_sample(name=sample_name)
-
-    start_section = sample.get_min_section_num(tile_grid_num=tile_grid_num)
-    end_section = sample.get_max_section_num(tile_grid_num=tile_grid_num)
-    return sample.get_section_range(
-        start_section_num=start_section,
-        end_section_num=end_section,
-        tile_grid_num=tile_grid_num,
-        include_skipped=False,
-    )

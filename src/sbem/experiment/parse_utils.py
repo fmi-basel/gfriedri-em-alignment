@@ -1,12 +1,11 @@
 import json
 import os
 from glob import glob
-from os.path import exists, join
+from os.path import join
 from typing import List
 
 from tqdm import tqdm
 
-from sbem.record.Sample import Sample
 from sbem.record.Section import Section
 from sbem.record.Tile import Tile
 
@@ -60,10 +59,9 @@ def get_tile_spec_from_SBEMtile(sbem_root_dir: str, tile: dict, resolution_xy: f
     return tile_spec
 
 
-def read_tile_metadata(sbem_root_dir: str,
-                       metadata_path: str,
-                       tile_grid_num: int,
-                       resolution_xy: float):
+def read_tile_metadata(
+    sbem_root_dir: str, metadata_path: str, tile_grid_num: int, resolution_xy: float
+):
     """
     Parse an SBEM metadata file and return all tile-specs as a list.
 
@@ -105,8 +103,9 @@ def get_tile_metadata(
         config = get_acquisition_config(mf)
         grid_pixel_size = config["pixel_sizes"][tile_grid_num]
         if grid_pixel_size == resolution_xy:
-            tile_specs += read_tile_metadata(sbem_root_dir, mf, tile_grid_num,
-                                             resolution_xy)
+            tile_specs += read_tile_metadata(
+                sbem_root_dir, mf, tile_grid_num, resolution_xy
+            )
         else:
             print("Acquisition parameters changed. Only returning first stack.")
             return tile_specs
@@ -116,7 +115,6 @@ def get_tile_metadata(
 
 def parse_and_add_sections(
     sbem_root_dir: str,
-    sample: Sample,
     acquisition: str,
     tile_grid: str,
     thickness: float,
@@ -124,8 +122,6 @@ def parse_and_add_sections(
     tile_width: int,
     tile_height: int,
     tile_overlap: int,
-    overwrite: bool = False,
-    license: str = "Creative Commons Attribution licence (CC " "BY)",
 ):
     """
     A helper function to parse the SBEM directory structure of an acquisition.
@@ -133,9 +129,6 @@ def parse_and_add_sections(
 
     :param tile_grid: identifier e.g. 'g0001'
     """
-    assert (
-        sample.get_experiment() is not None
-    ), "Sample does not belong to any experiment."
     tile_grid_num = int(tile_grid[1:])
 
     metadata_files = sorted(glob(join(sbem_root_dir, "meta", "logs", "metadata_*")))
@@ -145,27 +138,15 @@ def parse_and_add_sections(
     )
 
     for tile_spec in tqdm(tile_specs, desc="Add tiles"):
-        sec_num = tile_spec["z"]
-        section = sample.get_section(f"s{sec_num}_g{tile_grid_num}")
-
-        if section is None:
-            section = Section(
-                sample=sample,
-                stitched=False,
-                skip=False,
-                acquisition=acquisition,
-                name=f"s{sec_num}_g{tile_grid_num}",
-                section_num=tile_spec["z"],
-                tile_grid_num=tile_grid_num,
-                thickness=thickness,
-                tile_height=tile_height,
-                tile_width=tile_width,
-                tile_overlap=tile_overlap,
-                license=license,
-            )
-        else:
-            if not section._fully_initialized:
-                section.load_from_yaml()
+        section = Section(
+            acquisition=acquisition,
+            section_num=tile_spec["z"],
+            tile_grid_num=tile_grid_num,
+            thickness=thickness,
+            tile_height=tile_height,
+            tile_width=tile_width,
+            tile_overlap=tile_overlap,
+        )
 
         tile = section.get_tile(tile_spec["tile_id"])
         if tile is None:
@@ -178,19 +159,3 @@ def parse_and_add_sections(
                 resolution_xy=resolution_xy,
                 unit="nm",
             )
-
-    sample_path = join(
-        sample.get_experiment().get_root_dir(), sample.get_experiment().get_name()
-    )
-    sample.save(path=sample_path, overwrite=overwrite, section_to_subdir=True)
-
-    for section in tqdm(sample.sections.values(), desc="Build tile_id_maps"):
-        tile_id_map_path = join(
-            sample.get_experiment().get_root_dir(),
-            sample.get_experiment().get_name(),
-            sample.get_name(),
-            section.get_name(),
-            "tile_id_map.json",
-        )
-        if not exists(tile_id_map_path):
-            section.get_tile_id_map(path=tile_id_map_path)
