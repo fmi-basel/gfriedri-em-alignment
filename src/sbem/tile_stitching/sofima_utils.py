@@ -86,7 +86,7 @@ def register_tiles(
         )
         long_msg = f"{msg}\ncx: {np.array2string(cx)}\ncy: {np.array2string(cy)}"
         logger.error(long_msg)
-        raise ValueError(msg)
+        raise ValueError(long_msg)
 
     fine_x, offsets_x = stitch_elastic.compute_flow_map(
         tile_map,
