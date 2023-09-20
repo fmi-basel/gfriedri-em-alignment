@@ -68,13 +68,21 @@ def register_tiles(
     )
     tile_space = section.get_tile_id_map(path=tim_path).shape
     tile_map = section.get_tile_data_map(path=tim_path, indexing="xy")
-    cx, cy = stitch_rigid.compute_coarse_offsets(
-        tile_space,
-        tile_map,
-        overlaps_xy=(overlaps_x, overlaps_y),
-        min_overlap=min_overlap,
-        min_range=min_range,
-    )
+
+    cx_cy_path = join(section_dir, "cx_cy.json")
+    coarse_offsets = section.get_coarse_offsets(path=cx_cy_path)
+    if coarse_offsets is None:
+        cx, cy = stitch_rigid.compute_coarse_offsets(
+            tile_space,
+            tile_map,
+            overlaps_xy=(overlaps_x, overlaps_y),
+            min_overlap=min_overlap,
+            min_range=min_range,
+        )
+        section.set_coarse_offsets(cx=cx, cy=cy, path=cx_cy_path)
+    else:
+        cx, cy = coarse_offsets
+
     coarse_mesh = stitch_rigid.optimize_coarse_mesh(cx, cy)
     cx = np.squeeze(cx, axis=1)
     cy = np.squeeze(cy, axis=1)

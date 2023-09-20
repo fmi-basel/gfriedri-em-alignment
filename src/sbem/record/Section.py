@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from os.path import exists, join
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -142,6 +142,46 @@ class Section:
                     else:
                         tile_data_map[(y, x)] = data
         return tile_data_map
+
+    def set_coarse_offsets(self, cx: ArrayLike, cy: ArrayLike, path: str) -> None:
+        """
+        Save coarse offsets (cx, cy) to json.
+
+        :param cx:
+            Coarse offset cx.
+        :param cy:
+            Coarse offset cy.
+        :param path:
+            Where to save the offsets.
+        """
+        cx_cy = dict(cx=cx.tolist(), cy=cy.tolist())
+        with open(path, "w") as f:
+            json.dump(cx_cy, f)
+
+    def get_coarse_offsets(self, path=None) -> Union[None, tuple[ArrayLike, ArrayLike]]:
+        """
+        Load coarse offsets.
+
+        If no file exists None is returned.
+
+        :param path:
+            Where the coarse offset is stored.
+        :return:
+            cx, cy corase offsets.
+        """
+        if path is None:
+            return None
+        else:
+            if exists(path):
+                with open(path) as f:
+                    cx_cy = json.load(f)
+
+                cx = np.array(cx_cy["cx"])
+                cy = np.array(cx_cy["cy"])
+
+                return cx, cy
+            else:
+                return None
 
     def to_dict(self) -> Dict:
         tiles = []
