@@ -181,6 +181,7 @@ def register_tiles(
         "meshes.npz",
     )
     np.savez(mesh_path, **{str(k): v for k, v in meshes.items()})
+    logger.info(f"sofima_utils.py: {section.get_name()} - {mesh_path}")
     return mesh_path
 
 
