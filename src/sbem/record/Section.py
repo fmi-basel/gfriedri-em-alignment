@@ -103,7 +103,11 @@ class Section:
                 else:
                     tile_id_map[j_map].append(tile_id)
 
-        return np.array(tile_id_map)
+        tile_id_map_array = np.array(tile_id_map)
+        assert np.sum(tile_id_map_array > -1) == len(
+            self.tiles
+        ), "The tile_id_map is incomplete. Some tiles are missing."
+        return tile_id_map_array
 
     def get_tile_id_map(self, path: str = None) -> ArrayLike:
         if path is not None and exists(path):

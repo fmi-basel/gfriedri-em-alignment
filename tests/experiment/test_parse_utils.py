@@ -5,13 +5,10 @@ from os import makedirs
 from os.path import join
 from unittest import TestCase
 
-from sbem.experiment import Experiment
-from sbem.record.Sample import Sample
 from src.sbem.experiment.parse_utils import (
     get_acquisition_config,
     get_tile_metadata,
     get_tile_spec_from_SBEMtile,
-    parse_and_add_sections,
     read_tile_metadata,
 )
 
@@ -124,42 +121,3 @@ class ParseUtilsTest(TestCase):
     def test_get_tile_metadata(self):
         tile_specs = get_tile_metadata("/tmp/experiment", [self.metadata_path], 1, 11.0)
         assert len(tile_specs) == 1
-
-    def test_parse_and_add_sections(self):
-        exp = Experiment(
-            "name", "desc", "docu", root_dir=self.tmp_dir, authors=[], exist_ok=True
-        )
-        sample = Sample(
-            experiment=exp,
-            name="Sample",
-            description="desc",
-            documentation="",
-            aligned_data="",
-        )
-
-        parse_and_add_sections(
-            sbem_root_dir=self.tmp_dir,
-            sample=sample,
-            acquisition="run_0",
-            tile_grid="g0001",
-            thickness=25.0,
-            resolution_xy=11.0,
-            tile_width=3072,
-            tile_height=2304,
-            tile_overlap=200,
-        )
-
-        sec = sample.get_section("s5283_g1")
-        assert sec.get_section_num() == 5283
-        assert sec.get_tile_overlap() == 200
-        assert sec.get_tile_width() == 3072
-        assert sec.get_tile_height() == 2304
-        assert not sec.is_stitched()
-        assert not sec.skip()
-        sec.set_alignment_mesh("/a/path/mesh.npz")
-        assert sec.get_alignment_mesh() == "/a/path/mesh.npz"
-        assert len(sec.tiles) == 1
-
-        tile = sec.get_tile(431)
-        assert tile.x == -450885 // 11.0
-        assert tile.y == -744566 // 11.0

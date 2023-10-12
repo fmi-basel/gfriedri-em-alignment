@@ -1,13 +1,11 @@
+import configparser
 import json
 import os
-from glob import glob
 from os.path import join
 from typing import List
 
+import numpy as np
 from tqdm import tqdm
-
-from sbem.record.Section import Section
-from sbem.record.Tile import Tile
 
 
 def get_acquisition_config(metadata_path: str):
@@ -52,8 +50,8 @@ def get_tile_spec_from_SBEMtile(sbem_root_dir: str, tile: dict, resolution_xy: f
         "tile_id": int(tileid_split[1]),
         "grid_num": int(tileid_split[0]),
         "tile_file": join(sbem_root_dir, tile["filename"]),
-        "x": float(tile["glob_x"]) // resolution_xy,
-        "y": float(tile["glob_y"]) // resolution_xy,
+        "x": int(np.round(float(tile["glob_x"]) / resolution_xy)),
+        "y": int(np.round(float(tile["glob_y"]) / resolution_xy)),
         "z": int(tile["slice_counter"]),
     }
     return tile_spec
@@ -71,14 +69,29 @@ def read_tile_metadata(
     :return: list of tile-specs.
     """
     content = []
+    overlap, tile_size = get_spatial_tile_information(
+        conf_file=metadata_path.replace("metadata_", "config_"),
+        tile_grid_num=tile_grid_num,
+    )
     with open(metadata_path) as f:
         for t in filter(lambda l: l.startswith("TILE"), f.readlines()):
             tile = json.loads(t[6:-1].replace("'", '"'))
             tile_spec = get_tile_spec_from_SBEMtile(sbem_root_dir, tile, resolution_xy)
+            tile_spec["overlap"] = overlap
+            tile_spec["tile_height"] = tile_size[1]
+            tile_spec["tile_width"] = tile_size[0]
             if tile_spec["grid_num"] == tile_grid_num:
                 content.append(tile_spec)
 
     return content
+
+
+def get_spatial_tile_information(conf_file: str, tile_grid_num: int) -> int:
+    config = configparser.ConfigParser()
+    config.read(conf_file)
+    overlaps = json.loads(config["grids"]["overlap"])
+    tile_size = json.loads(config["grids"]["tile_size"])
+    return overlaps[tile_grid_num], tile_size[tile_grid_num]
 
 
 def get_tile_metadata(
@@ -111,51 +124,3 @@ def get_tile_metadata(
             return tile_specs
 
     return tile_specs
-
-
-def parse_and_add_sections(
-    sbem_root_dir: str,
-    acquisition: str,
-    tile_grid: str,
-    thickness: float,
-    resolution_xy: float,
-    tile_width: int,
-    tile_height: int,
-    tile_overlap: int,
-):
-    """
-    A helper function to parse the SBEM directory structure of an acquisition.
-
-
-    :param tile_grid: identifier e.g. 'g0001'
-    """
-    tile_grid_num = int(tile_grid[1:])
-
-    metadata_files = sorted(glob(join(sbem_root_dir, "meta", "logs", "metadata_*")))
-
-    tile_specs = get_tile_metadata(
-        sbem_root_dir, metadata_files, tile_grid_num, resolution_xy
-    )
-
-    for tile_spec in tqdm(tile_specs, desc="Add tiles"):
-        section = Section(
-            acquisition=acquisition,
-            section_num=tile_spec["z"],
-            tile_grid_num=tile_grid_num,
-            thickness=thickness,
-            tile_height=tile_height,
-            tile_width=tile_width,
-            tile_overlap=tile_overlap,
-        )
-
-        tile = section.get_tile(tile_spec["tile_id"])
-        if tile is None:
-            Tile(
-                section,
-                tile_id=tile_spec["tile_id"],
-                path=tile_spec["tile_file"],
-                stage_x=tile_spec["x"],
-                stage_y=tile_spec["y"],
-                resolution_xy=resolution_xy,
-                unit="nm",
-            )
