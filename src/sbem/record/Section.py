@@ -21,6 +21,7 @@ class Section:
         acquisition: str,
         section_num: int,
         tile_grid_num: int,
+        grid_shape: tuple[int, int],
         thickness: float,
         tile_height: int,
         tile_width: int,
@@ -28,6 +29,7 @@ class Section:
     ):
         self._section_num = section_num
         self._tile_grid_num = tile_grid_num
+        self._grid_shape = grid_shape
         self._acquisition = acquisition
         self._thickness = thickness
         self._tile_height = tile_height
@@ -70,44 +72,37 @@ class Section:
         return self._acquisition
 
     def _compute_tile_id_map(self) -> ArrayLike:
+
+        def trim_neg_ones(arr):
+            """
+            Removes borders filled entirely with -1 from a 2D numpy array.
+            """
+            if arr.size == 0:
+                return arr
+
+            rows = np.any(arr != -1, axis=1)
+            cols = np.any(arr != -1, axis=0)
+            return arr[np.ix_(rows, cols)]
+
+        def create_sbem_grid(tile_ids: List[int]):
+            grid = np.full(self._grid_shape, fill_value=-1)
+            rows, cols = grid.shape
+
+            for row_pos in range(rows):
+                for col_pos in range(cols):
+                    tile_index = row_pos * cols + col_pos
+                    if tile_index in tile_ids:
+                        grid[row_pos, col_pos] = tile_index
+            return trim_neg_ones(grid)
+
         if len(self.tiles) == 0:
+            logging.warning(f"len tiles: {len(self.tiles)}")
             return None
 
-        xx, yy = set(), set()
-        coords_to_tile = {}
-        for t in self.tiles.values():
-            x, y = int(t.x), int(t.y)
-            if x in coords_to_tile.keys():
-                coords_to_tile[x][y] = t.get_tile_id()
-            else:
-                coords_to_tile[x] = {y: t.get_tile_id()}
-            xx.add(x)
-            yy.add(y)
+        tile_ids = list(self.tiles.keys())
+        tile_id_map = create_sbem_grid(tile_ids)
 
-        xx = list(sorted(xx))
-        yy = list(sorted(yy))
-
-        tile_id_map = [[]]
-        for j_map, j in enumerate(
-            range(yy[0], yy[-1] + 1, self._tile_height - self._tile_overlap)
-        ):
-            for i in range(xx[0], xx[-1] + 1, self._tile_width - self._tile_overlap):
-
-                tile_id = -1
-                if i in coords_to_tile.keys():
-                    if j in coords_to_tile[i].keys():
-                        tile_id = coords_to_tile[i][j]
-
-                if len(tile_id_map) <= j_map:
-                    tile_id_map.append([tile_id])
-                else:
-                    tile_id_map[j_map].append(tile_id)
-
-        tile_id_map_array = np.array(tile_id_map)
-        assert np.sum(tile_id_map_array > -1) == len(
-            self.tiles
-        ), "The tile_id_map is incomplete. Some tiles are missing."
-        return tile_id_map_array
+        return tile_id_map
 
     def get_tile_id_map(self, path: str = None) -> ArrayLike:
         if path is not None and exists(path):
