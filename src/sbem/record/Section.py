@@ -190,6 +190,7 @@ class Section:
         return {
             "section_num": self._section_num,
             "tile_grid_num": self._tile_grid_num,
+            "grid_shape": self._grid_shape,
             "acquisition": self._acquisition,
             "thickness": self._thickness,
             "tile_height": self._tile_height,
@@ -226,6 +227,7 @@ class Section:
         section = cls(
             section_num=dict["section_num"],
             tile_grid_num=dict["tile_grid_num"],
+            grid_shape=dict["grid_shape"],
             acquisition=dict["acquisition"],
             thickness=dict["thickness"],
             tile_height=dict["tile_height"],
