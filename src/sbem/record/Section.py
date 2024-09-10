@@ -72,7 +72,6 @@ class Section:
         return self._acquisition
 
     def _compute_tile_id_map(self) -> ArrayLike:
-
         def trim_neg_ones(arr):
             """
             Removes borders filled entirely with -1 from a 2D numpy array.
@@ -155,7 +154,7 @@ class Section:
         """
         cx_cy = dict(cx=cx.tolist(), cy=cy.tolist())
         with open(path, "w") as f:
-            json.dump(cx_cy, f)
+            json.dump(cx_cy, f, indent=4)
 
     def get_coarse_offsets(self, path=None) -> Union[None, tuple[ArrayLike, ArrayLike]]:
         """
